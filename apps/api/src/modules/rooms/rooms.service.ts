@@ -5,7 +5,8 @@ import { DomainException } from '../../common/errors/domain.exception';
 import { assertPolicy } from '../../common/policy/assert-policy';
 import { VisitStatus, type Prisma, type StudyRoom } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { SYSTEM_CANCEL_REASON, systemCanceledHistory } from '../visits/visit-history.factory';
+import { systemCancelUpcomingVisits } from '../visits/system-cancel';
+import { SYSTEM_CANCEL_REASON } from '../visits/visit-history.factory';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { RoomResponseDto } from './dto/room-response.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
@@ -109,33 +110,7 @@ export class RoomsService {
         throw new DomainException(ERROR_CODE.ROOM_NOT_FOUND);
       }
 
-      const upcoming = await tx.visit.findMany({
-        where: { roomId: id, status: VisitStatus.ACTIVE, visitAt: { gte: now } },
-        select: { id: true, roomId: true, studentId: true, visitAt: true },
-      });
-      if (upcoming.length === 0) {
-        return;
-      }
-
-      const canceled = await tx.visit.updateMany({
-        where: { id: { in: upcoming.map((visit) => visit.id) }, status: VisitStatus.ACTIVE },
-        data: { status: VisitStatus.CANCELED },
-      });
-      if (canceled.count !== upcoming.length) {
-        // 위에서 읽은 신청이 그 사이 바뀌었다는 뜻이다. 이력과 카운터가 어긋나지 않도록 전체를 되돌린다.
-        throw new Error(
-          `자습실 ${id} 삭제 중 신청 상태가 바뀌었습니다 (예상 ${upcoming.length}, 실제 ${canceled.count}).`,
-        );
-      }
-      await tx.visitHistory.createMany({
-        data: upcoming.map((visit) =>
-          systemCanceledHistory(visit, SYSTEM_CANCEL_REASON.ROOM_DELETED, now),
-        ),
-      });
-      await tx.studyRoom.update({
-        where: { id },
-        data: { activeCount: { decrement: upcoming.length } },
-      });
+      await systemCancelUpcomingVisits(tx, { roomId: id }, SYSTEM_CANCEL_REASON.ROOM_DELETED, now);
     });
   }
 
