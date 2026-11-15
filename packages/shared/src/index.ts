@@ -4,3 +4,4 @@ export * from './error-code.js';
 export * from './health.js';
 export * from './room.js';
 export * from './student.js';
+export * from './visit.js';
