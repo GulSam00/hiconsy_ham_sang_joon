@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { TEST_DATABASE_URL } from './test/test-database.mjs';
 import { swcPlugin } from './vitest.swc.mjs';
 
 export default defineConfig({
@@ -6,7 +7,9 @@ export default defineConfig({
   test: {
     include: ['test/**/*.e2e-spec.ts'],
     environment: 'node',
-    // e2e는 이후 SQLite 파일 DB를 공유하므로 파일 단위 병렬 실행을 끈다.
+    globalSetup: ['./test/global-setup.ts'],
+    env: { DATABASE_URL: TEST_DATABASE_URL },
+    // 모든 테스트 파일이 같은 SQLite 파일을 공유하므로 파일 단위 병렬 실행을 끈다.
     fileParallelism: false,
   },
 });
