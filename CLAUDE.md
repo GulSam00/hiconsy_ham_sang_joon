@@ -193,13 +193,34 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 
 ## 11. Git
 
-- 커밋 메시지는 **Conventional Commits** 형식이고, 끝에 이슈 번호를 붙입니다.
+### 브랜치 전략: GitHub Flow (이슈 1개 = 브랜치 1개 = PR 1개)
+
+- `main`은 **항상 실행 가능한 상태**를 유지합니다. 직접 커밋·푸시하지 않고 PR로만 반영합니다.
+- 이슈 작업은 **최신 `main`에서** 브랜치를 만듭니다.
+- 브랜치 이름: `{type}/{3자리 번호}-{kebab-case 요약}` (이슈 폴더 이름과 맞춤)
+  - `chore/001-project-setup`, `feat/006-visit-api`, `docs/012-readme`
+- 이슈에 속하지 않는 작업(CLAUDE.md, 이슈 목록, 템플릿 수정 등)은 `chore/meta-{요약}` 브랜치를 씁니다.
+- merge 방식은 **Squash merge**입니다. `main`에는 이슈당 커밋 1개가 남고, 작업 중 커밋은 PR 안에 보존됩니다.
+- merge 후 작업 브랜치는 삭제합니다. 다음 이슈는 다시 최신 `main`에서 시작합니다.
+- 선행 이슈가 merge되지 않았으면 다음 이슈를 그 위에 쌓지(stacked PR) 않고, merge를 먼저 요청합니다.
+
+### 커밋 메시지
+
+- **Conventional Commits** 형식이고, 끝에 이슈 번호를 붙입니다.
   - `feat(visits): 방문 신청 API 구현 (ISSUE-006)`
   - type: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
   - scope: `api`, `web`, `shared`, `rooms`, `students`, `visits`, `db`, `issues` 등
+- 이슈 밖 작업은 scope를 `meta`로 쓰고 이슈 번호를 붙이지 않습니다. 예: `docs(meta): 브랜치 전략 추가`
 - `#번호` 표기는 GitHub 이슈 링크로 오인되므로 `ISSUE-xxx`를 씁니다.
 - 한 커밋에는 하나의 논리적 변경만 담습니다. 커밋 전에 `lint`, `typecheck`, `test`를 통과시킵니다.
 - `.env`, `*.db`, `node_modules`, 빌드 산출물은 커밋하지 않습니다.
+
+### Pull Request
+
+- **PR 제목 = Squash 후 `main`에 남는 커밋 메시지**입니다. 커밋 메시지 규칙을 그대로 따릅니다.
+- 본문은 `.github/pull_request_template.md`를 채웁니다. 이슈 폴더 링크, 변경 요약, 결정 기록 요약, 테스트 방법을 포함합니다.
+- PR을 올리기 전에 이슈 완료 기준 체크리스트를 채우고, `issues/README.md`의 상태를 `DONE`으로 바꿉니다.
+- PR merge는 저장소 소유자가 합니다. AI 도구는 PR 생성까지만 하고 직접 merge하지 않습니다.
 
 ## 12. 문서
 
