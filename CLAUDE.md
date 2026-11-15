@@ -146,7 +146,11 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 
 ### 상태 전이도 조건부 UPDATE로
 
-- 신청의 상태 변경(취소, 시간 수정)은 `WHERE id = ? AND status = 'ACTIVE'` 조건을 건 UPDATE로 합니다. 0건이면 이미 취소된 것으로 보고 `VISIT_ALREADY_CANCELED`를 반환합니다.
+- 신청의 상태 변경은 조건을 건 UPDATE로 하고, 0건이면 다시 읽어 원인을 진단합니다.
+  - 취소: `WHERE id = ? AND status = 'ACTIVE' AND visitAt >= now`
+  - 시간 수정: `WHERE id = ? AND status = 'ACTIVE' AND visitAt = 읽은 값 AND 자습실이 삭제되지 않았고 새 시각이 기간 안` (관계 필터로 한 문장). 읽은 뒤 같은 신청이 바뀌었으면 이력의 prev가 어긋나므로 되돌립니다.
+  - 재신청: `WHERE id = ? AND status = 'CANCELED'`. 0건이면 이미 재신청된 것이므로 `DUPLICATE_VISIT`입니다.
+- 신청 시간 수정은 자습실 행을 갱신하지 않습니다. Prisma가 `updatedAt`을 자동으로 바꿔 자습실의 수정 시각이 오염되기 때문입니다.
 - 학생과 강사가 같은 신청을 동시에 취소해도 한쪽만 성공하고, 정원 카운터가 두 번 빠지지 않습니다.
 
 ### 시간은 Clock으로
@@ -221,6 +225,7 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - 매직 넘버·문자열 대신 상수나 enum을 씁니다.
 - 타입만 쓰는 import는 `import { type X }`로 표시합니다. **단, api는 예외**입니다. Nest DI는 생성자 파라미터의 값 import에서 메타데이터를 읽으므로, api에서 type-only로 바꾸면 런타임에 주입이 깨집니다. 그래서 ESLint 규칙도 api에서는 꺼져 있습니다.
 - 주석은 "무엇"이 아니라 **"왜"**를 씁니다.
+- shared에 둔 enum(`VISIT_STATUS` 등)과 Prisma enum은 `modules/visits/enum-sync.ts`가 컴파일 시점에 일치를 확인합니다. 한쪽에 값을 추가하면 다른 쪽도 함께 고칩니다.
 
 ### Backend (NestJS)
 
@@ -247,6 +252,8 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 
 - `*.policy.ts`는 **경계값 단위 테스트**를 반드시 작성합니다 (운영 기간 시작·끝 정각, 정원 = max - 1 / max 등).
 - 정원 동시성은 **e2e 테스트**로 검증합니다. 같은 자습실에 동시 신청 N건을 보내고 활성 신청 수 ≤ `maxPersonnel`, `activeCount`와 실제 ACTIVE 수가 일치하는지 확인합니다.
+- 단, better-sqlite3는 연결이 하나라 트랜잭션이 사실상 차례로 실행됩니다. e2e 동시성 테스트는 "동시 HTTP 요청에서 규칙이 지켜진다"를 증명하고, 조건부 UPDATE 자체의 원자성은 `test/database.e2e-spec.ts`(트랜잭션 없는 동시 UPDATE)가 증명합니다. 둘 다 유지합니다.
+- 신청 상태를 바꾸는 시나리오에는 **이력 재생 검증**(`replayVisitHistory()` 결과 = 현재 신청)을 넣습니다.
 - 시간 의존 테스트는 고정 Clock을 씁니다.
 - e2e는 전용 DB(`prisma/test.db`)를 씁니다. 실행 전에 `test/global-setup.ts`가 파일을 지우고 `migrate deploy`로 새로 만듭니다. 각 테스트는 `beforeEach`에서 FK 역순(이력 → 신청 → 자습실·학생)으로 테이블을 비웁니다.
 - e2e 앱은 `test/support/test-app.ts`의 `createTestApp()`으로 만듭니다(실제와 같은 `configureApp` + `FixedClock`). 테이블 비우기는 `resetDatabase()`, 테스트 데이터는 `test/support/fixtures.ts`를 씁니다.

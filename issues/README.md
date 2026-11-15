@@ -9,7 +9,7 @@
 | 003 | [공통 인프라 (ErrorCode, 예외 필터, Clock, Swagger, 요청자 Guard)](./003-common-infra/README.md) | - | DONE |
 | 004 | [자습실 CRUD API (수정·삭제 시 R6~R8 포함)](./004-room-crud-api/README.md) | FR-ROM-01, 02, 04, 05, (선택) FR-ROM-06 | DONE |
 | 005 | [학생 API (삭제 시 R9 포함)](./005-student-api/README.md) | FR-STD-01, (선택) FR-STD-02 | DONE |
-| 006 | 방문 신청·수정·취소 API와 이력 | FR-VST-01~03, FR-ROM-03 | TODO |
+| 006 | [방문 신청·수정·취소 API와 이력](./006-visit-api/README.md) | FR-VST-01~03, FR-ROM-03 | DONE |
 | 007 | 강사 개별 취소 (R11) | (선택) FR-ROM-06 | TODO |
 | 008 | 내 신청 목록 API | (선택) FR-VST-04 | TODO |
 | 009 | 프론트엔드 셋업 (Router, Pinia, Vue Query, Tailwind, 역할 전환) | - | TODO |
