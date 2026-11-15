@@ -38,7 +38,7 @@ issues/
 | DB | **SQLite + Prisma ORM** | 파일 DB라서 별도 설치 불필요. 트랜잭션·유니크 제약을 DB가 보장 |
 | 검증 | class-validator, class-transformer, 전역 `ValidationPipe` | `whitelist`, `forbidNonWhitelisted`, `transform` 켬 |
 | API 문서 | @nestjs/swagger | `/api/docs` |
-| 시간 | dayjs (+utc, timezone) | |
+| 시간 | 서버: `Date` + `Clock` / 화면: ISSUE-009에서 결정 | 서버는 UTC `Date` 비교만 하므로 날짜 라이브러리가 필요 없음. KST 표시용 라이브러리는 화면 작업 시 도입 |
 | Frontend | Vue 3 + Vite + TypeScript | `apps/web` |
 | 서버 상태 | @tanstack/vue-query | |
 | 클라이언트 상태 | Pinia | 현재 역할, 선택한 학생만 보관 |
@@ -170,7 +170,8 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 | `X-Student-Id` | 학생 id (양의 정수) | `X-Actor-Role: STUDENT`일 때 |
 
 - 헤더 파싱·검증은 `parseActor()` 한 곳에서만 합니다. 헤더가 없거나 형식이 틀리면 `401 ACTOR_REQUIRED`입니다.
-- 역할 검사는 `@Roles(...)` 데코레이터 + `RolesGuard`로 합니다. Guard는 DTO 검증보다 먼저 실행되므로, 권한이 없으면 검증 에러보다 `403 FORBIDDEN_ROLE`이 먼저 나갑니다.
+- 역할 검사는 `@Roles(...)` 데코레이터 + 전역 `ActorGuard`로 합니다. Guard는 DTO 검증보다 먼저 실행되므로, 권한이 없으면 검증 에러보다 `403 FORBIDDEN_ROLE`이 먼저 나갑니다.
+- **모든 엔드포인트는 `@Roles(...)` 또는 `@Public()` 중 하나를 반드시 선언합니다.** 둘 다 없으면 Guard가 500으로 막습니다(기본 거부). 선언을 빠뜨렸을 때 아무나 호출할 수 있게 되는 것을 막기 위함입니다.
 - 컨트롤러는 `@CurrentActor()`로 요청자를 받습니다. 컨트롤러·서비스가 헤더를 직접 읽지 않습니다. 나중에 JWT로 바꿀 때 `parseActor()`만 교체하면 됩니다.
 - 학생이 다른 학생의 신청을 수정·취소하면 `403 FORBIDDEN_VISIT_OWNER`입니다.
 - 이력의 `actorType`은 **서버가 요청자 정보에서 정합니다.** 클라이언트가 보낸 값을 저장하지 않습니다.
@@ -194,9 +195,14 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 | 400 | DTO 검증 실패 | `VALIDATION_FAILED`, `CANCEL_REASON_REQUIRED` |
 | 401 | 요청자 헤더 없음·형식 오류 | `ACTOR_REQUIRED` |
 | 403 | 권한 없음 | `FORBIDDEN_ROLE`, `FORBIDDEN_VISIT_OWNER` |
-| 404 | 없거나 삭제됨 | `ROOM_NOT_FOUND`, `STUDENT_NOT_FOUND`, `VISIT_NOT_FOUND` |
+| 404 | 없거나 삭제됨, 없는 경로 | `ROOM_NOT_FOUND`, `STUDENT_NOT_FOUND`, `VISIT_NOT_FOUND`, `ROUTE_NOT_FOUND` |
 | 409 | 현재 상태와 충돌 | `ROOM_FULL`, `DUPLICATE_VISIT`, `VISIT_ALREADY_CANCELED`, `VISIT_ALREADY_PASSED`, `CAPACITY_BELOW_ACTIVE`, `PERIOD_EXCLUDES_VISITS` |
 | 422 | 형식은 맞지만 규칙 위반 | `VISIT_OUT_OF_PERIOD`, `VISIT_IN_PAST`, `INVALID_PERIOD` |
+| 500 | 예상하지 못한 오류 (원인은 로그에만) | `INTERNAL_ERROR` |
+| 503 | DB 연결 불가 | `DATABASE_UNAVAILABLE` |
+
+- 코드 → HTTP 상태 매핑은 `apps/api/src/common/errors/error-status.ts` 한 곳에만 둡니다. 서비스는 상태를 고르지 않고 코드만 던집니다.
+- 프레임워크가 던진 `HttpException`(깨진 JSON 등)은 필터가 원래 상태를 유지한 채 우리 코드로 바꿉니다.
 
 - `ErrorCode`는 `packages/shared`에 정의하고 FE·BE가 함께 씁니다. 새 코드를 추가하면 메시지 매핑도 함께 추가합니다.
 - Prisma 유니크 위반(`P2002`)은 서비스에서 해당 도메인 에러(예: `DUPLICATE_VISIT`)로 변환합니다. Prisma 에러가 응답에 그대로 노출되면 안 됩니다.
@@ -218,7 +224,9 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - 파일명: `kebab-case.{role}.ts` (예: `visits.service.ts`, `create-room.dto.ts`, `visit.policy.ts`).
 - 모듈 구조: `modules/{domain}/` 아래에 controller, service, policy, `dto/`.
 - 요청 DTO는 `Create*Dto` / `Update*Dto`, 응답 DTO는 `*ResponseDto`. 엔티티를 그대로 응답하지 않고 응답 DTO로 변환합니다.
-- 공통 요소는 `src/common/`(clock, errors, filters, decorators)에 둡니다.
+- 공통 요소는 `src/common/`에 둡니다: `actor/`(요청자 Guard·데코레이터), `clock/`, `errors/`, `filters/`, `validation/`(전역 Pipe, `ParseIdPipe`), `swagger/`.
+- 경로 파라미터 id는 `@Param('id', ParseIdPipe)`로 받습니다. Nest 기본 `ParseIntPipe`는 `HttpException`을 던지고 0·음수를 통과시키므로 쓰지 않습니다.
+- 테스트에서 시각은 `.overrideProvider(Clock).useValue(new FixedClock(...))`로 고정합니다.
 - 전역 설정(prefix, pipe, filter 등)은 `src/app.setup.ts`의 `configureApp()`에만 추가합니다. `main.ts`와 e2e 테스트가 같은 함수를 쓰므로, 여기서 빠진 설정은 테스트에서도 빠집니다.
 
 ### Frontend (Vue)

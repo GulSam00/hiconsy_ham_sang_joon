@@ -6,7 +6,7 @@
 |---|---|---|---|
 | 001 | [프로젝트 셋업 (npm workspaces, lint, `packages/shared`)](./001-project-setup/README.md) | - | DONE |
 | 002 | [DB 스키마와 시드 (Prisma + SQLite)](./002-db-schema/README.md) | - | DONE |
-| 003 | 공통 인프라 (ErrorCode, 예외 필터, Clock, Swagger, `@CurrentStudent`) | - | TODO |
+| 003 | [공통 인프라 (ErrorCode, 예외 필터, Clock, Swagger, 요청자 Guard)](./003-common-infra/README.md) | - | DONE |
 | 004 | 자습실 CRUD API | FR-ROM-01, 02, 04, 05 | TODO |
 | 005 | 학생 API | FR-STD-01, (선택) FR-STD-02 | TODO |
 | 006 | 방문 신청·수정·취소 API와 이력 | FR-VST-01~03, FR-ROM-03 | TODO |
