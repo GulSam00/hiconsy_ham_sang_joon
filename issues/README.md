@@ -4,7 +4,7 @@
 
 | 번호 | 제목 | 관련 FR | 상태 |
 |---|---|---|---|
-| 001 | 프로젝트 셋업 (npm workspaces, lint, `packages/shared`) | - | TODO |
+| 001 | [프로젝트 셋업 (npm workspaces, lint, `packages/shared`)](./001-project-setup/README.md) | - | DONE |
 | 002 | DB 스키마와 시드 (Prisma + SQLite) | - | TODO |
 | 003 | 공통 인프라 (ErrorCode, 예외 필터, Clock, Swagger, `@CurrentStudent`) | - | TODO |
 | 004 | 자습실 CRUD API | FR-ROM-01, 02, 04, 05 | TODO |

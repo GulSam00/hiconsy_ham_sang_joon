@@ -43,25 +43,32 @@ issues/
 | 서버 상태 | @tanstack/vue-query | |
 | 클라이언트 상태 | Pinia | 현재 역할, 선택한 학생만 보관 |
 | 스타일 | Tailwind CSS | |
-| 공용 타입 | `packages/shared` | `ErrorCode`, enum, API 응답 타입 |
+| 공용 타입 | `packages/shared` | `ErrorCode`, enum, API 응답 타입. **ESM 전용**, `dist`로 빌드해 소비 |
+| 테스트 | Vitest (api는 `unplugin-swc`로 변환) | esbuild는 데코레이터 메타데이터를 만들지 않아 Nest DI가 동작하지 않으므로 api만 SWC 사용 |
+| 런타임 | Node.js **≥ 22.12** (`.nvmrc`) | CJS인 api가 ESM인 shared를 `require(esm)`으로 불러오기 때문 |
 
 ### 버전 고정 규칙
 
-- 의존성은 **정확한 버전으로 고정**합니다 (`^`, `~` 금지). `package-lock.json`을 커밋합니다.
+- 의존성은 **정확한 버전으로 고정**합니다 (`^`, `~` 금지). `.npmrc`의 `save-exact=true`가 이를 강제합니다. `package-lock.json`을 커밋합니다.
 - **Prisma**: npm `latest` 태그가 RC(8.x)를 가리키므로 **안정판 7.x를 명시 고정**합니다. RC, beta, dev 태그는 쓰지 않습니다.
-- **TypeScript**: NestJS 데코레이터 메타데이터와 호환되는 버전을 씁니다. 메이저 버전을 올리기 전에 `api` 빌드와 테스트 통과를 확인합니다.
+- **TypeScript**: **6.0.3으로 고정**합니다. `latest`는 7.x이지만 `typescript-eslint`(`<6.1.0`), Nest CLI(`~6.0.2`)가 아직 7을 지원하지 않습니다. 올리기 전에 `npm run verify` 통과를 확인합니다.
 
 ## 4. 명령어
 
-> ISSUE-001(프로젝트 셋업)에서 확정합니다. 스크립트를 추가·변경하면 이 표도 함께 갱신합니다.
+스크립트를 추가·변경하면 이 표도 함께 갱신합니다.
 
-| 목적 | 명령 |
-|---|---|
-| 설치 | `npm install` |
-| DB 마이그레이션 + 시드 | `npm run db:setup` |
-| 개발 서버 (api + web) | `npm run dev` |
-| 테스트 전체 | `npm test` |
-| 린트 / 타입 검사 | `npm run lint` / `npm run typecheck` |
+| 목적 | 명령 | 비고 |
+|---|---|---|
+| 설치 | `npm install` | `postinstall`이 `packages/shared`를 빌드함 |
+| 개발 서버 | `npm run dev` | shared(watch) + api(:3000) + web(:5173). web이 `/api`를 api로 프록시 |
+| 빌드 | `npm run build` | |
+| API 운영 실행 | `npm start -w @study-room/api` | 빌드 후. `PORT` 환경 변수로 포트 변경 |
+| 단위 테스트 | `npm test` | |
+| e2e 테스트 | `npm run test:e2e` | |
+| 린트 / 타입 검사 | `npm run lint` / `npm run typecheck` | |
+| 포맷 | `npm run format` / `npm run format:check` | `*.md`는 Prettier 대상에서 제외 |
+| **커밋 전 전체 검증** | `npm run verify` | format:check → lint → typecheck → test → test:e2e |
+| DB 마이그레이션 + 시드 | `npm run db:setup` | ISSUE-002에서 추가 예정 |
 
 ## 5. 도메인 정책 (규칙 해석)
 
@@ -167,6 +174,7 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - `catch (error: unknown)`으로 받고, 처리할 수 없는 에러는 다시 던집니다. 에러를 삼키지 않습니다.
 - "나중에 처리" 같은 TODO 주석으로 에러 처리를 미루지 않습니다.
 - 매직 넘버·문자열 대신 상수나 enum을 씁니다.
+- 타입만 쓰는 import는 `import { type X }`로 표시합니다. **단, api는 예외**입니다. Nest DI는 생성자 파라미터의 값 import에서 메타데이터를 읽으므로, api에서 type-only로 바꾸면 런타임에 주입이 깨집니다. 그래서 ESLint 규칙도 api에서는 꺼져 있습니다.
 - 주석은 "무엇"이 아니라 **"왜"**를 씁니다.
 
 ### Backend (NestJS)
@@ -175,6 +183,7 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - 모듈 구조: `modules/{domain}/` 아래에 controller, service, policy, `dto/`.
 - 요청 DTO는 `Create*Dto` / `Update*Dto`, 응답 DTO는 `*ResponseDto`. 엔티티를 그대로 응답하지 않고 응답 DTO로 변환합니다.
 - 공통 요소는 `src/common/`(clock, errors, filters, decorators)에 둡니다.
+- 전역 설정(prefix, pipe, filter 등)은 `src/app.setup.ts`의 `configureApp()`에만 추가합니다. `main.ts`와 e2e 테스트가 같은 함수를 쓰므로, 여기서 빠진 설정은 테스트에서도 빠집니다.
 
 ### Frontend (Vue)
 
@@ -185,6 +194,9 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - API 호출은 `src/api/`의 함수로만 합니다. 컴포넌트에서 axios를 직접 호출하지 않습니다.
 
 ## 10. 테스트 규칙
+
+- 테스트 러너는 Vitest입니다. 전역 주입을 쓰지 않고 `import { describe, it, expect } from 'vitest'`로 명시합니다.
+- 단위 테스트는 대상 옆에 `*.spec.ts`로 두고, e2e는 `apps/api/test/*.e2e-spec.ts`에 둡니다.
 
 - `*.policy.ts`는 **경계값 단위 테스트**를 반드시 작성합니다 (운영 기간 시작·끝 정각, 정원 = max - 1 / max 등).
 - 정원 동시성은 **e2e 테스트**로 검증합니다. 같은 자습실에 동시 신청 N건을 보내고 활성 신청 수 ≤ `maxPersonnel`, `activeCount`와 실제 ACTIVE 수가 일치하는지 확인합니다.

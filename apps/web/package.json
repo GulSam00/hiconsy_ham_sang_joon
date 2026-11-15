@@ -1,0 +1,23 @@
+{
+  "name": "@study-room/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "자습실 예약 웹 (Vue 3)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc -b --noEmit"
+  },
+  "dependencies": {
+    "@study-room/shared": "0.0.0",
+    "vue": "3.5.45"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.11",
+    "@vue/tsconfig": "0.9.1",
+    "vite": "8.3.8",
+    "vue-tsc": "3.3.14"
+  }
+}
