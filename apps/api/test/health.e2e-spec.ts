@@ -1,34 +1,30 @@
-import type { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { HEALTH_STATUS, type HealthResponse } from '@study-room/shared';
+import { DATABASE_STATUS, HEALTH_STATUS, type HealthResponse } from '@study-room/shared';
 import request from 'supertest';
-import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { AppModule } from '../src/app.module';
-import { configureApp } from '../src/app.setup';
+import { TEST_NOW, createTestApp, type TestApp } from './support/test-app';
 
 describe('GET /api/health (e2e)', () => {
-  let app: INestApplication<App>;
+  let t: TestApp;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
-    configureApp(app);
-    await app.init();
+    t = await createTestApp();
   });
 
   afterAll(async () => {
-    await app.close();
+    await t.app.close();
   });
 
-  it('global prefix가 적용된 경로에서 200과 상태 ok를 반환한다', async () => {
-    const response = await request(app.getHttpServer()).get('/api/health').expect(200);
-    const body = response.body as HealthResponse;
+  it('global prefix가 적용된 경로에서 200과 서버·DB 상태를 반환한다', async () => {
+    const response = await request(t.app.getHttpServer()).get('/api/health').expect(200);
 
-    expect(body.status).toBe(HEALTH_STATUS.OK);
+    expect(response.body as HealthResponse).toEqual({
+      status: HEALTH_STATUS.OK,
+      database: DATABASE_STATUS.UP,
+      timestamp: TEST_NOW,
+    });
   });
 
   it('prefix 없는 경로는 404를 반환한다', async () => {
-    await request(app.getHttpServer()).get('/health').expect(404);
+    await request(t.app.getHttpServer()).get('/health').expect(404);
   });
 });

@@ -141,7 +141,7 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 
 - 취소 시 감소는 `status === ACTIVE`인 경우에만 수행해 카운터가 음수가 되지 않게 합니다.
 - 메모리 뮤텍스(`async-mutex` 등)로 정원을 지키지 않습니다. 서버가 여러 대가 되면 깨집니다.
-- 정원 축소(R6)도 같은 방식입니다. `WHERE activeCount <= 새 정원` 조건을 건 UPDATE 한 문장으로 바꾸고, 0건이면 `CAPACITY_BELOW_ACTIVE`입니다.
+- 자습실 수정(R6, R7)도 같은 방식입니다. `activeCount <= 새 정원`과 `새 기간 밖의 ACTIVE 신청이 없음(NOT EXISTS)` 조건을 **UPDATE 한 문장**에 걸고, 0건이면 그때 원인을 진단해 `CAPACITY_BELOW_ACTIVE` 또는 `PERIOD_EXCLUDES_VISITS`를 던집니다. Prisma가 이를 한 문장으로 실행함을 SQL 로그로 확인했습니다(ISSUE-004).
 - `activeCount`를 바꾸는 곳은 `VisitsService`와 삭제 처리(R8, R9)뿐입니다.
 
 ### 상태 전이도 조건부 UPDATE로
@@ -159,6 +159,8 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 
 - 검증 규칙(R1~R7, R11, R12)은 `modules/*/*.policy.ts`의 **순수 함수**로 작성합니다. Prisma, Nest에 의존하지 않습니다.
 - 서비스는 "데이터 조회 → policy 호출 → 저장"을 조율만 합니다.
+- 정책 함수는 예외를 던지지 않고 `PolicyResult`(`common/policy/`)를 돌려줍니다. `DomainException`이 `@nestjs/common`에 의존하기 때문입니다. 서비스가 `assertPolicy(result)`로 예외로 바꿉니다.
+- 지난 방문 판정은 `modules/visits/visit-time.ts`의 `isPastVisit()` 하나만 씁니다.
 
 ### 요청자 식별
 
@@ -246,6 +248,8 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - 정원 동시성은 **e2e 테스트**로 검증합니다. 같은 자습실에 동시 신청 N건을 보내고 활성 신청 수 ≤ `maxPersonnel`, `activeCount`와 실제 ACTIVE 수가 일치하는지 확인합니다.
 - 시간 의존 테스트는 고정 Clock을 씁니다.
 - e2e는 전용 DB(`prisma/test.db`)를 씁니다. 실행 전에 `test/global-setup.ts`가 파일을 지우고 `migrate deploy`로 새로 만듭니다. 각 테스트는 `beforeEach`에서 FK 역순(이력 → 신청 → 자습실·학생)으로 테이블을 비웁니다.
+- e2e 앱은 `test/support/test-app.ts`의 `createTestApp()`으로 만듭니다(실제와 같은 `configureApp` + `FixedClock`). 테이블 비우기는 `resetDatabase()`, 테스트 데이터는 `test/support/fixtures.ts`를 씁니다.
+- 신청 데이터가 필요한 테스트는 `createVisit()` fixture로 `activeCount`까지 맞춰 만듭니다. 상태 변경 후에는 `readActiveCounts()`로 카운터와 실제 ACTIVE 수가 같은지 확인합니다.
 - 테스트 코드에 `prisma migrate reset`처럼 대상 DB를 통째로 지우는 명령을 두지 않습니다.
 - 테스트를 건너뛰거나(`skip`) 지워서 통과시키지 않습니다.
 

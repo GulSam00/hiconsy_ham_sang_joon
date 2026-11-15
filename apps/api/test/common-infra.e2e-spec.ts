@@ -2,8 +2,7 @@
  * 공통 인프라(요청자 Guard, 검증 Pipe, 예외 필터, Swagger)가 실제 HTTP 요청에서
  * CLAUDE.md 7·8절대로 동작하는지 검증한다. 검증용 컨트롤러는 이 테스트에서만 등록한다.
  */
-import { Body, Controller, Get, type INestApplication, Param, Post } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import {
   ACTOR_ROLE,
   ERROR_CODE,
@@ -14,17 +13,11 @@ import {
 } from '@study-room/shared';
 import { IsInt, Min } from 'class-validator';
 import request from 'supertest';
-import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { AppModule } from '../src/app.module';
-import { configureApp } from '../src/app.setup';
 import { CurrentActor, Public, Roles } from '../src/common/actor/actor.decorators';
-import { Clock } from '../src/common/clock/clock';
-import { FixedClock } from '../src/common/clock/fixed-clock';
 import { DomainException } from '../src/common/errors/domain.exception';
 import { ParseIdPipe } from '../src/common/validation/parse-id.pipe';
-
-const NOW = '2026-11-15T03:00:00.000Z';
+import { TEST_NOW as NOW, createTestApp, type TestApp } from './support/test-app';
 
 class ProbeDto {
   @IsInt()
@@ -74,26 +67,17 @@ const TEACHER = { 'X-Actor-Role': 'TEACHER' };
 const STUDENT = { 'X-Actor-Role': 'STUDENT', 'X-Student-Id': '7' };
 
 describe('공통 인프라 (e2e)', () => {
-  let app: INestApplication<App>;
+  let t: TestApp;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-      controllers: [ProbeController],
-    })
-      .overrideProvider(Clock)
-      .useValue(new FixedClock(NOW))
-      .compile();
-    app = moduleRef.createNestApplication({ logger: false });
-    configureApp(app);
-    await app.init();
+    t = await createTestApp({ controllers: [ProbeController] });
   });
 
   afterAll(async () => {
-    await app.close();
+    await t.app.close();
   });
 
-  const http = () => request(app.getHttpServer());
+  const http = () => request(t.app.getHttpServer());
 
   function expectError(body: unknown, statusCode: number, code: ErrorResponse['code']): void {
     expect(body).toMatchObject({ statusCode, code, timestamp: NOW });
