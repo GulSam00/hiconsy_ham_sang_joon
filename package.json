@@ -1,0 +1,41 @@
+{
+  "name": "study-room",
+  "version": "0.0.0",
+  "private": true,
+  "description": "자습실 예약 MVP (Vue 3 + NestJS)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "postinstall": "npm run build:shared",
+    "build:shared": "npm run build -w @study-room/shared",
+    "predev": "npm run build:shared",
+    "dev": "concurrently -k -n shared,api,web -c blue,green,magenta \"npm:dev -w @study-room/shared\" \"npm:dev -w @study-room/api\" \"npm:dev -w @study-room/web\"",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e -w @study-room/api",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.5",
+    "concurrently": "10.0.7",
+    "eslint": "10.15.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-vue": "10.12.1",
+    "globals": "17.14.0",
+    "prettier": "3.10.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2"
+  }
+}

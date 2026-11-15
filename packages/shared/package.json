@@ -1,0 +1,21 @@
+{
+  "name": "@study-room/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "FE·BE 공용 타입과 상수",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}
