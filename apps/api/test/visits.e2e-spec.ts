@@ -1,5 +1,6 @@
 import {
   ERROR_CODE,
+  type CapacityConflictDetails,
   VISIT_ACTION,
   VISIT_STATUS,
   type ErrorResponse,
@@ -277,6 +278,105 @@ describe('방문 신청 API (e2e)', () => {
     });
   });
 
+  describe('강사 취소 (R11)', () => {
+    const teacherCancel = (visitId: number, body?: object) => {
+      const req = http().post(`/api/visits/${visitId}/cancel`).set(TEACHER);
+      return body === undefined ? req : req.send(body);
+    };
+
+    it('강사는 사유와 함께 학생의 예정 신청을 취소할 수 있고, 이력에 TEACHER와 사유가 남는다', async () => {
+      const visit = await applyOk();
+
+      await teacherCancel(visit.id, { reason: '  자습실 정원 조정  ' }).expect(200);
+
+      expect((await histories(room.id)).at(-1)).toMatchObject({
+        action: VISIT_ACTION.CANCELED,
+        actor: 'TEACHER',
+        prevVisitAt: T1,
+        nextVisitAt: null,
+        reason: '자습실 정원 조정',
+      });
+      expect(await readActiveCounts(t.prisma, room.id)).toEqual({ activeCount: 0, actual: 0 });
+    });
+
+    it.each<[string, object | undefined]>([
+      ['body 없음', undefined],
+      ['사유 없음', {}],
+      ['공백뿐인 사유', { reason: '   ' }],
+    ])('%s → 400 CANCEL_REASON_REQUIRED, 아무것도 바뀌지 않는다', async (_name, body) => {
+      const visit = await applyOk();
+
+      const res = await teacherCancel(visit.id, body).expect(400);
+
+      expect(codeOf(res.body)).toBe(ERROR_CODE.CANCEL_REASON_REQUIRED);
+      expect(await readActiveCounts(t.prisma, room.id)).toEqual({ activeCount: 1, actual: 1 });
+      expect(await histories(room.id)).toHaveLength(1);
+    });
+
+    it('사유가 200자를 넘으면 400 VALIDATION_FAILED', async () => {
+      const visit = await applyOk();
+      const res = await teacherCancel(visit.id, { reason: '가'.repeat(201) }).expect(400);
+      expect(codeOf(res.body)).toBe(ERROR_CODE.VALIDATION_FAILED);
+    });
+
+    it('강사도 지난 방문은 취소할 수 없다 (R5)', async () => {
+      const visit = await applyOk();
+      t.clock.advance(2 * ONE_DAY_MS);
+
+      const res = await teacherCancel(visit.id, { reason: '정리' }).expect(409);
+      expect(codeOf(res.body)).toBe(ERROR_CODE.VISIT_ALREADY_PASSED);
+    });
+
+    it('학생이 공백뿐인 사유로 취소하면 사유 없음으로 기록한다', async () => {
+      const visit = await applyOk();
+
+      await cancel(visit.id, student.id, { reason: '   ' }).expect(200);
+
+      expect((await histories(room.id)).at(-1)?.reason).toBeNull();
+    });
+
+    it('정원 축소 충돌(R6)을 강사 취소로 풀 수 있다: 409 → 목록에서 골라 취소 → 재시도 200', async () => {
+      const others = await Promise.all([1, 2].map((i) => createStudent(t.prisma, `학생${i}`)));
+      await applyOk(student.id);
+      for (const other of others) {
+        await applyOk(other.id);
+      }
+
+      const conflict = await http()
+        .patch(`/api/rooms/${room.id}`)
+        .set(TEACHER)
+        .send({ maxPersonnel: 2 })
+        .expect(409);
+      const details = (conflict.body as ErrorResponse<CapacityConflictDetails>).details;
+      const target = details?.cancellableVisits.at(-1);
+      if (target === undefined) throw new Error('취소 가능한 신청이 없습니다.');
+
+      await teacherCancel(target.visitId, { reason: '정원을 2명으로 줄입니다.' }).expect(200);
+      await http()
+        .patch(`/api/rooms/${room.id}`)
+        .set(TEACHER)
+        .send({ maxPersonnel: 2 })
+        .expect(200);
+
+      expect(await readActiveCounts(t.prisma, room.id)).toEqual({ activeCount: 2, actual: 2 });
+    });
+
+    it('학생과 강사가 동시에 같은 신청을 취소해도 한쪽만 성공하고 정원은 한 번만 돌아온다', async () => {
+      const visit = await applyOk();
+
+      const responses = await Promise.all([
+        cancel(visit.id, student.id),
+        teacherCancel(visit.id, { reason: '강사 취소' }),
+      ]);
+
+      expect(responses.map((res) => res.status).sort()).toEqual([200, 409]);
+      expect(await readActiveCounts(t.prisma, room.id)).toEqual({ activeCount: 0, actual: 0 });
+      expect(
+        (await histories(room.id)).filter((h) => h.action === VISIT_ACTION.CANCELED),
+      ).toHaveLength(1);
+    });
+  });
+
   describe('자습실 상세 (FR-ROM-03)', () => {
     it('이력은 강사만 볼 수 있다', async () => {
       await http()
@@ -371,7 +471,7 @@ describe('방문 신청 API (e2e)', () => {
   });
 
   describe('불변 조건: 이력을 재생하면 현재 상태와 같다', () => {
-    it('신청·수정·취소·재신청을 섞어도 모든 신청에서 성립한다', async () => {
+    it('신청·수정·본인 취소·강사 취소·재신청을 섞어도 모든 신청에서 성립한다', async () => {
       const other = await createStudent(t.prisma, '이서연');
 
       const a = await applyOk(student.id, T1);
@@ -384,7 +484,11 @@ describe('방문 신청 API (e2e)', () => {
       t.clock.advance(1_000);
       const b = await applyOk(other.id, T2);
       t.clock.advance(1_000);
-      await cancel(b.id, other.id).expect(200);
+      await http()
+        .post(`/api/visits/${b.id}/cancel`)
+        .set(TEACHER)
+        .send({ reason: '강사 취소' })
+        .expect(200);
 
       const all = await histories(room.id);
       const visits = await t.prisma.visit.findMany({ where: { roomId: room.id } });
