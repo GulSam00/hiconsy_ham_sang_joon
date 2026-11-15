@@ -105,7 +105,7 @@ issues/
 - `Visit`은 `@@unique([roomId, studentId])`로 중복 신청을 **DB 레벨에서** 막습니다.
 - `VisitHistory`는 **append-only**입니다. INSERT만 하고 UPDATE·DELETE는 하지 않습니다.
 - **Visit 상태 변경과 VisitHistory INSERT는 반드시 같은 트랜잭션**에서 수행합니다.
-- `StudyRoom.activeCount`(비정규화 카운터)는 **`VisitsService`(와 R8 삭제 처리)에서만** 변경합니다. 다른 곳에서 직접 수정하지 않습니다.
+- `StudyRoom.activeCount`(비정규화 카운터)는 **`VisitsService`와 삭제 처리(`modules/visits/system-cancel.ts`의 `systemCancelUpcomingVisits`, R8·R9)에서만** 변경합니다. 다른 곳에서 직접 수정하지 않습니다.
 - 스키마를 바꾸면 마이그레이션 파일을 생성해 커밋하고, `docs/erd.md`를 갱신합니다.
 - 테이블 이름은 `@@map`으로 snake_case 복수형(`study_rooms`)을 쓰고, 컬럼은 Prisma 필드 이름(camelCase) 그대로 둡니다.
 - Prisma Client는 `apps/api/src/generated/prisma`에 생성되며 **커밋하지 않습니다**. import는 `../generated/prisma/client`에서 합니다.
@@ -142,7 +142,7 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - 취소 시 감소는 `status === ACTIVE`인 경우에만 수행해 카운터가 음수가 되지 않게 합니다.
 - 메모리 뮤텍스(`async-mutex` 등)로 정원을 지키지 않습니다. 서버가 여러 대가 되면 깨집니다.
 - 자습실 수정(R6, R7)도 같은 방식입니다. `activeCount <= 새 정원`과 `새 기간 밖의 ACTIVE 신청이 없음(NOT EXISTS)` 조건을 **UPDATE 한 문장**에 걸고, 0건이면 그때 원인을 진단해 `CAPACITY_BELOW_ACTIVE` 또는 `PERIOD_EXCLUDES_VISITS`를 던집니다. Prisma가 이를 한 문장으로 실행함을 SQL 로그로 확인했습니다(ISSUE-004).
-- `activeCount`를 바꾸는 곳은 `VisitsService`와 삭제 처리(R8, R9)뿐입니다.
+- `activeCount`를 바꾸는 곳은 `VisitsService`와 삭제 처리(`systemCancelUpcomingVisits`, R8·R9)뿐입니다. 자습실·학생 삭제는 반드시 이 함수를 같은 트랜잭션 안에서 호출합니다.
 
 ### 상태 전이도 조건부 UPDATE로
 
@@ -178,6 +178,7 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - 학생이 다른 학생의 신청을 수정·취소하면 `403 FORBIDDEN_VISIT_OWNER`입니다.
 - 이력의 `actorType`은 **서버가 요청자 정보에서 정합니다.** 클라이언트가 보낸 값을 저장하지 않습니다.
 - 헤더는 누구나 조작할 수 있으므로 보안 장치가 아닙니다. 과제가 로그인 생략을 허용한 데 따른 한계이며, README에 명시합니다.
+- `@Public()` API는 요청자를 모르는 상태에서 호출되므로 **개인정보(전화번호 등)를 응답에 담지 않습니다.** 예: 역할 선택 화면용 `GET /students/options`는 id·이름만 반환합니다.
 
 ## 8. API 컨벤션
 
