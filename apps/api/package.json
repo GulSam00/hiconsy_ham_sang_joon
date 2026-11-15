@@ -10,12 +10,19 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "vitest run --config vitest.e2e.config.mts"
+    "test:e2e": "vitest run --config vitest.e2e.config.mts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:setup": "prisma migrate deploy && prisma db seed",
+    "db:reset": "prisma migrate reset --force && prisma db seed",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@nestjs/common": "12.5.0",
     "@nestjs/core": "12.5.0",
     "@nestjs/platform-express": "12.5.0",
+    "@prisma/adapter-better-sqlite3": "7.10.1",
+    "@prisma/client": "7.10.1",
     "@study-room/shared": "0.0.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"
@@ -27,7 +34,9 @@
     "@swc/core": "1.16.22",
     "@types/express": "5.0.6",
     "@types/supertest": "7.2.1",
+    "prisma": "7.10.1",
     "supertest": "7.3.2",
+    "tsx": "4.23.15",
     "unplugin-swc": "2.0.0",
     "vitest": "5.1.0"
   }

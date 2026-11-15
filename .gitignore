@@ -26,3 +26,6 @@ npm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# prisma generate 결과물 (postinstall에서 재생성)
+apps/api/src/generated/

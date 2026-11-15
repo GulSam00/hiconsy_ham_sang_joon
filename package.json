@@ -12,9 +12,12 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "postinstall": "npm run build:shared",
+    "postinstall": "npm run build:shared && npm run db:generate",
     "build:shared": "npm run build -w @study-room/shared",
-    "predev": "npm run build:shared",
+    "db:generate": "npm run db:generate -w @study-room/api",
+    "db:setup": "npm run db:setup -w @study-room/api",
+    "db:reset": "npm run db:reset -w @study-room/api",
+    "predev": "npm run build:shared && npm run db:setup",
     "dev": "concurrently -k -n shared,api,web -c blue,green,magenta \"npm:dev -w @study-room/shared\" \"npm:dev -w @study-room/api\" \"npm:dev -w @study-room/web\"",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces --if-present",
