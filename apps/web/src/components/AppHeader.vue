@@ -10,6 +10,21 @@ const actorStore = useActorStore();
 const { selected } = storeToRefs(actorStore);
 const router = useRouter();
 
+/** 역할별 메뉴. 학생 메뉴는 ISSUE-011에서 채운다. */
+const navItems = computed(() => {
+  const role = selected.value?.role;
+  if (role === ACTOR_ROLE.TEACHER) {
+    return [
+      { name: ROUTE_NAME.TEACHER_ROOMS, label: '자습실' },
+      { name: ROUTE_NAME.TEACHER_STUDENTS, label: '학생' },
+    ];
+  }
+  if (role === ACTOR_ROLE.STUDENT) {
+    return [{ name: ROUTE_NAME.STUDENT_ROOMS, label: '자습실' }];
+  }
+  return [];
+});
+
 const actorLabel = computed(() => {
   const current = selected.value;
   if (current === null) {
@@ -33,6 +48,17 @@ async function changeRole(): Promise<void> {
       >
         자습실 예약
       </RouterLink>
+      <nav v-if="navItems.length > 0" class="mr-auto ml-8 flex gap-4 text-sm">
+        <RouterLink
+          v-for="item in navItems"
+          :key="item.name"
+          :to="{ name: item.name }"
+          class="text-slate-500 hover:text-slate-900"
+          active-class="font-semibold text-slate-900"
+        >
+          {{ item.label }}
+        </RouterLink>
+      </nav>
       <div v-if="actorLabel" class="flex items-center gap-3 text-sm">
         <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{{ actorLabel }}</span>
         <button
