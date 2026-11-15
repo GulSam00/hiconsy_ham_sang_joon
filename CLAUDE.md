@@ -214,7 +214,7 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - 이슈에 속하지 않는 작업(CLAUDE.md, 이슈 목록, 템플릿 수정 등)은 `chore/meta-{요약}` 브랜치를 씁니다.
 - merge 방식은 **Squash merge**입니다. `main`에는 이슈당 커밋 1개가 남고, 작업 중 커밋은 PR 안에 보존됩니다.
 - merge 후 작업 브랜치는 삭제합니다. 다음 이슈는 다시 최신 `main`에서 시작합니다.
-- 선행 이슈가 merge되지 않았으면 다음 이슈를 그 위에 쌓지(stacked PR) 않고, merge를 먼저 요청합니다.
+- 선행 이슈가 merge되지 않았으면 다음 이슈를 그 위에 쌓지(stacked PR) 않고, 소유자의 진행 지시를 받아 merge부터 합니다.
 
 ### 커밋 메시지
 
@@ -232,7 +232,18 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - **PR 제목 = Squash 후 `main`에 남는 커밋 메시지**입니다. 커밋 메시지 규칙을 그대로 따릅니다.
 - 본문은 `.github/pull_request_template.md`를 채웁니다. 이슈 폴더 링크, 변경 요약, 결정 기록 요약, 테스트 방법을 포함합니다.
 - PR을 올리기 전에 이슈 완료 기준 체크리스트를 채우고, `issues/README.md`의 상태를 `DONE`으로 바꿉니다.
-- PR merge는 저장소 소유자가 합니다. AI 도구는 PR 생성까지만 하고 직접 merge하지 않습니다.
+
+### Merge
+
+- merge는 AI 도구가 **Squash merge**로 수행합니다. 단, **저장소 소유자가 해당 브랜치를 확인하고 명시적으로 진행을 지시한 뒤에만** 합니다.
+  - 지시는 **PR 단위**입니다. 이전 PR에 대한 지시가 다음 PR로 이어지지 않습니다.
+  - PR을 올린 뒤에는 지시를 기다리며, 지시 없이 merge하거나 다음 이슈를 시작하지 않습니다.
+- merge 직전 확인 사항 (하나라도 어긋나면 merge하지 않고 소유자에게 알립니다)
+  - 지시받은 PR 번호·브랜치와 일치하는가
+  - base가 `main`이고, 충돌 없이 merge 가능한 상태인가
+  - 지시 이후 브랜치에 새 커밋이 push되지 않았는가 (새 커밋이 있으면 다시 확인을 요청)
+- merge 후: 로컬 `main`을 최신화하고, 다음 이슈 브랜치는 그 `main`에서 만듭니다.
+- 원격 작업 브랜치 정리는 GitHub 저장소 설정 "Automatically delete head branches"로 처리합니다.
 
 ## 12. 문서
 
