@@ -38,10 +38,12 @@ issues/
 | DB | **SQLite + Prisma ORM** | 파일 DB라서 별도 설치 불필요. 트랜잭션·유니크 제약을 DB가 보장 |
 | 검증 | class-validator, class-transformer, 전역 `ValidationPipe` | `whitelist`, `forbidNonWhitelisted`, `transform` 켬 |
 | API 문서 | @nestjs/swagger | `/api/docs` |
-| 시간 | 서버: `Date` + `Clock` / 화면: ISSUE-009에서 결정 | 서버는 UTC `Date` 비교만 하므로 날짜 라이브러리가 필요 없음. KST 표시용 라이브러리는 화면 작업 시 도입 |
+| 시간 | 서버: `Date` + `Clock` / 화면: 내장 `Intl.DateTimeFormat`(`Asia/Seoul`) | **날짜 라이브러리 미도입.** 서버는 UTC 비교만 하고, 화면은 Intl이 시간대를 지원하며 KST는 일광절약시간이 없어 입력 변환도 고정 `+09:00`으로 충분함 (`apps/web/src/utils/datetime.ts`) |
 | Frontend | Vue 3 + Vite + TypeScript | `apps/web` |
 | 서버 상태 | @tanstack/vue-query | |
-| 클라이언트 상태 | Pinia | 현재 역할, 선택한 학생만 보관 |
+| 클라이언트 상태 | Pinia | 현재 역할, 선택한 학생만 보관 (`localStorage`에 저장해 새로고침 시 유지) |
+| 라우팅 | vue-router | 화면별 허용 역할은 `meta.role` |
+| HTTP | axios | `src/api/client.ts` 인스턴스 하나 |
 | 스타일 | Tailwind CSS | |
 | 공용 타입 | `packages/shared` | `ErrorCode`, enum, API 응답 타입. **ESM 전용**, `dist`로 빌드해 소비 |
 | 테스트 | Vitest (api는 `unplugin-swc`로 변환) | esbuild는 데코레이터 메타데이터를 만들지 않아 Nest DI가 동작하지 않으므로 api만 SWC 사용 |
@@ -244,10 +246,18 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - 서버 데이터는 **TanStack Query로만** 다룹니다. Pinia에 서버 데이터를 복사하지 않습니다.
 - Query key는 `src/queries/keys.ts`에서 한 곳에 정의합니다. mutation 성공 후 관련 key를 `invalidateQueries`로 무효화합니다.
 - API 호출은 `src/api/`의 함수로만 합니다. 컴포넌트에서 axios를 직접 호출하지 않습니다.
+- 요청자 헤더(`X-Actor-Role`, `X-Student-Id`)는 `src/api/client.ts`의 인터셉터에서만 붙입니다. API 함수·화면은 헤더를 신경 쓰지 않습니다.
+- API 에러는 클라이언트 경계에서 `ApiError`(`src/api/api-error.ts`)로 바꿉니다. 화면은 `error.code`로 분기하고, 서버 응답이 없으면 `NETWORK_ERROR`입니다.
+- 재시도: query는 네트워크·5xx만 최대 2번, 4xx는 재시도하지 않습니다. mutation은 재시도하지 않습니다(`src/queries/query-client.ts`).
+- 요청자가 무효해지면(401, 학생 요청자의 `STUDENT_NOT_FOUND`) 전역 에러 처리(`main.ts`)가 역할을 지우고 역할 선택으로 보냅니다.
+- 화면 접근 제한은 라우트 `meta.role` + `redirectFor()`(순수 함수)로 합니다. 이는 편의 기능이고, 실제 권한은 서버가 검사합니다.
+- 일시 표시는 `formatKst()`, `datetime-local` 입력은 `toKstInputValue()` / `fromKstInputValue()`만 씁니다. 컴포넌트에서 `Date`를 직접 다루지 않습니다.
+- 버튼 활성 여부 같은 화면 상태는 "고른 id"가 아니라 **실제로 찾은 대상**으로 판단합니다(목록 갱신·잘못된 값에도 눌러도 반응 없는 버튼이 생기지 않게).
 
 ## 10. 테스트 규칙
 
 - 테스트 러너는 Vitest입니다. 전역 주입을 쓰지 않고 `import { describe, it, expect } from 'vitest'`로 명시합니다.
+- web 테스트는 happy-dom 환경입니다. 컴포넌트 테스트는 `src/api/*` 모듈을 `vi.mock`으로 바꾸고, 실제 Pinia·memory router·QueryClient(재시도 끔)로 마운트합니다.
 - 단위 테스트는 대상 옆에 `*.spec.ts`로 두고, e2e는 `apps/api/test/*.e2e-spec.ts`에 둡니다.
 
 - `*.policy.ts`는 **경계값 단위 테스트**를 반드시 작성합니다 (운영 기간 시작·끝 정각, 정원 = max - 1 / max 등).

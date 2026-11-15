@@ -1,36 +1,18 @@
 <script setup lang="ts">
-import type { HealthResponse } from '@study-room/shared';
-import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { fetchHealth } from './health';
-
-type HealthState =
-  { kind: 'loading' } | { kind: 'ok'; data: HealthResponse } | { kind: 'error'; message: string };
-
-const state = ref<HealthState>({ kind: 'loading' });
-const controller = new AbortController();
-
-onMounted(async () => {
-  try {
-    state.value = { kind: 'ok', data: await fetchHealth(controller.signal) };
-  } catch (error: unknown) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      return;
-    }
-    state.value = {
-      kind: 'error',
-      message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
-    };
-  }
-});
-
-onBeforeUnmount(() => controller.abort());
+import ApiStatus from '@/components/ApiStatus.vue';
+import AppHeader from '@/components/AppHeader.vue';
 </script>
 
 <template>
-  <main>
-    <h1>자습실 예약</h1>
-    <p v-if="state.kind === 'loading'">API 연결 확인 중...</p>
-    <p v-else-if="state.kind === 'ok'">API 연결 정상 ({{ state.data.timestamp }})</p>
-    <p v-else role="alert">API 연결 실패: {{ state.message }}</p>
-  </main>
+  <div class="flex min-h-screen flex-col">
+    <AppHeader />
+    <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+      <RouterView />
+    </main>
+    <footer class="border-t border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-5xl justify-end px-4 py-2">
+        <ApiStatus />
+      </div>
+    </footer>
+  </div>
 </template>

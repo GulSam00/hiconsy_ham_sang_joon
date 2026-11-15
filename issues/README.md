@@ -12,7 +12,7 @@
 | 006 | [방문 신청·수정·취소 API와 이력](./006-visit-api/README.md) | FR-VST-01~03, FR-ROM-03 | DONE |
 | 007 | [강사 개별 취소 (R11)](./007-teacher-cancel/README.md) | (선택) FR-ROM-06 | DONE |
 | 008 | [내 신청 목록 API](./008-my-visits-api/README.md) | (선택) FR-VST-04 | DONE |
-| 009 | 프론트엔드 셋업 (Router, Pinia, Vue Query, Tailwind, 역할 전환) | - | TODO |
+| 009 | [프론트엔드 셋업 (Router, Pinia, Vue Query, Tailwind, 역할 전환)](./009-web-setup/README.md) | - | DONE |
 | 010 | 강사 화면 (자습실 목록·등록·수정·삭제·상세 이력, 학생 목록) | FR-ROM-*, FR-STD-01 | TODO |
 | 011 | 학생 화면 (방문 신청·수정·취소, 내 신청 목록) | FR-VST-* | TODO |
 | 012 | 문서화와 클린 환경 실행 검증 (README, docs, docker-compose) | - | TODO |
