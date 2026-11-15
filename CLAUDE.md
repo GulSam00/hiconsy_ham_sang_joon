@@ -59,8 +59,8 @@ issues/
 
 | 목적 | 명령 | 비고 |
 |---|---|---|
-| 설치 | `npm install` | `postinstall`이 `packages/shared`를 빌드함 |
-| 개발 서버 | `npm run dev` | shared(watch) + api(:3000) + web(:5173). web이 `/api`를 api로 프록시 |
+| 설치 | `npm install` | `postinstall`이 `packages/shared` 빌드 + Prisma Client 생성 |
+| 개발 서버 | `npm run dev` | `predev`가 DB 마이그레이션·시드를 먼저 적용. shared(watch) + api(:3000) + web(:5173) |
 | 빌드 | `npm run build` | |
 | API 운영 실행 | `npm start -w @study-room/api` | 빌드 후. `PORT` 환경 변수로 포트 변경 |
 | 단위 테스트 | `npm test` | |
@@ -68,7 +68,11 @@ issues/
 | 린트 / 타입 검사 | `npm run lint` / `npm run typecheck` | |
 | 포맷 | `npm run format` / `npm run format:check` | `*.md`는 Prettier 대상에서 제외 |
 | **커밋 전 전체 검증** | `npm run verify` | format:check → lint → typecheck → test → test:e2e |
-| DB 마이그레이션 + 시드 | `npm run db:setup` | ISSUE-002에서 추가 예정 |
+| DB 준비 | `npm run db:setup` | `migrate deploy` + 시드. 데이터가 있으면 시드는 건너뜀 (반복 실행 안전) |
+| DB 초기화 | `npm run db:reset` | **모든 데이터 삭제** 후 마이그레이션·시드 재적용 |
+| Prisma Client 재생성 | `npm run db:generate` | 스키마 수정 후 |
+| 마이그레이션 생성 | `npm run db:migrate -w @study-room/api -- --name {이름}` | 스키마 수정 후. 개발 DB에 적용됨 |
+| DB 조회 GUI | `npm run db:studio -w @study-room/api` | |
 
 ## 5. 도메인 정책 (규칙 해석)
 
@@ -97,14 +101,20 @@ issues/
 - `VisitHistory`는 **append-only**입니다. INSERT만 하고 UPDATE·DELETE는 하지 않습니다.
 - **Visit 상태 변경과 VisitHistory INSERT는 반드시 같은 트랜잭션**에서 수행합니다.
 - `StudyRoom.activeCount`(비정규화 카운터)는 **`VisitsService`(와 R8 삭제 처리)에서만** 변경합니다. 다른 곳에서 직접 수정하지 않습니다.
-- 스키마를 바꾸면 마이그레이션 파일을 생성해 커밋하고, `docs/`의 ERD를 갱신합니다.
+- 스키마를 바꾸면 마이그레이션 파일을 생성해 커밋하고, `docs/erd.md`를 갱신합니다.
+- 테이블 이름은 `@@map`으로 snake_case 복수형(`study_rooms`)을 쓰고, 컬럼은 Prisma 필드 이름(camelCase) 그대로 둡니다.
+- Prisma Client는 `apps/api/src/generated/prisma`에 생성되며 **커밋하지 않습니다**. import는 `../generated/prisma/client`에서 합니다.
+- PrismaClient는 `src/database/create-prisma-client.ts`의 팩토리로만 만듭니다. 런타임(PrismaService)과 시드가 같은 연결 설정을 쓰게 하기 위함입니다.
 
 ### SQLite 운영 규칙
 
-- DB 파일은 `apps/api/prisma/dev.db`이고 **커밋하지 않습니다** (`.gitignore`). 시드로 재생성합니다.
-- 연결 시 **WAL 모드**와 `busy_timeout`을 설정해 동시 쓰기 시 `SQLITE_BUSY`를 줄입니다.
+- Prisma 7은 드라이버 어댑터가 필수입니다. `@prisma/adapter-better-sqlite3`를 씁니다.
+- DB 파일은 `apps/api/prisma/dev.db`(개발), `apps/api/prisma/test.db`(e2e)이고 **커밋하지 않습니다**. 시드로 재생성합니다.
+- `DATABASE_URL`이 없으면 `file:./prisma/dev.db`를 씁니다 (`src/database/database-url.ts`). 상대 경로는 `apps/api` 기준이며, npm 스크립트는 항상 이 디렉토리에서 실행됩니다.
+- 연결 시 **WAL 모드**와 busy timeout(5초)을 설정해 동시 쓰기 시 `SQLITE_BUSY`를 줄입니다.
 - SQLite는 쓰기를 DB 단위로 직렬화합니다. 이 한계와 "운영 환경에서는 PostgreSQL로 전환" 방침을 README에 명시합니다.
-- SQLite 전용 문법이나 raw SQL을 쓰지 않습니다. PostgreSQL로 옮겨도 그대로 동작하게 Prisma API만 사용합니다.
+- SQLite 전용 문법이나 raw SQL을 쓰지 않습니다. PostgreSQL로 옮겨도 그대로 동작하게 Prisma API만 사용합니다. **예외는 `src/database/`의 PRAGMA 한 곳**뿐이며, PostgreSQL로 옮길 때 그 호출만 지우면 됩니다.
+- 시드는 방문 신청을 만들지 않습니다. 신청은 `activeCount`·이력 정합성 규칙을 거쳐야 하므로 API로만 만듭니다.
 
 ## 7. 핵심 구현 규칙
 
@@ -201,6 +211,8 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - `*.policy.ts`는 **경계값 단위 테스트**를 반드시 작성합니다 (운영 기간 시작·끝 정각, 정원 = max - 1 / max 등).
 - 정원 동시성은 **e2e 테스트**로 검증합니다. 같은 자습실에 동시 신청 N건을 보내고 활성 신청 수 ≤ `maxPersonnel`, `activeCount`와 실제 ACTIVE 수가 일치하는지 확인합니다.
 - 시간 의존 테스트는 고정 Clock을 씁니다.
+- e2e는 전용 DB(`prisma/test.db`)를 씁니다. 실행 전에 `test/global-setup.ts`가 파일을 지우고 `migrate deploy`로 새로 만듭니다. 각 테스트는 `beforeEach`에서 FK 역순(이력 → 신청 → 자습실·학생)으로 테이블을 비웁니다.
+- 테스트 코드에 `prisma migrate reset`처럼 대상 DB를 통째로 지우는 명령을 두지 않습니다.
 - 테스트를 건너뛰거나(`skip`) 지워서 통과시키지 않습니다.
 
 ## 11. Git

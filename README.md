@@ -17,8 +17,16 @@ npm install
 npm run dev
 ```
 
+`npm run dev`는 시작 전에 SQLite DB(`apps/api/prisma/dev.db`)를 만들고 마이그레이션과 데모 데이터를 적용합니다. 별도 DB 설치나 `.env` 파일은 필요 없습니다.
+
 - 웹: http://localhost:5173
 - API: http://localhost:3000/api (상태 확인: `GET /api/health`)
+
+데모 데이터를 처음 상태로 되돌리려면 (모든 데이터 삭제):
+
+```bash
+npm run db:reset
+```
 
 ### 검증
 

@@ -7,7 +7,14 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', '**/*.d.ts'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/coverage/**',
+      '**/*.d.ts',
+      // prisma generate 결과물
+      'apps/api/src/generated/**',
+    ],
   },
 
   js.configs.recommended,
@@ -64,6 +71,14 @@ export default tseslint.config(
     files: ['apps/api/**/*.ts'],
     rules: {
       '@typescript-eslint/consistent-type-imports': 'off',
+    },
+  },
+
+  {
+    // 시드는 CLI에서 실행하는 스크립트라 진행 상황을 표준 출력으로 알린다.
+    files: ['apps/api/prisma/**/*.ts'],
+    rules: {
+      'no-console': 'off',
     },
   },
 
