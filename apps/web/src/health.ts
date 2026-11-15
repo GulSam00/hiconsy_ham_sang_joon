@@ -1,4 +1,9 @@
-import { API_PREFIX, HEALTH_STATUS, type HealthResponse } from '@study-room/shared';
+import {
+  API_PREFIX,
+  DATABASE_STATUS,
+  HEALTH_STATUS,
+  type HealthResponse,
+} from '@study-room/shared';
 
 /**
  * 프로젝트 셋업 확인용 API 호출.
@@ -21,5 +26,9 @@ function isHealthResponse(value: unknown): value is HealthResponse {
     return false;
   }
   const candidate = value as Record<string, unknown>;
-  return candidate.status === HEALTH_STATUS.OK && typeof candidate.timestamp === 'string';
+  return (
+    candidate.status === HEALTH_STATUS.OK &&
+    candidate.database === DATABASE_STATUS.UP &&
+    typeof candidate.timestamp === 'string'
+  );
 }
