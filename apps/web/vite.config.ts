@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url';
+import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import { API_PREFIX } from '@study-room/shared';
 import { defineConfig } from 'vite';
@@ -6,7 +7,7 @@ import { defineConfig } from 'vite';
 const API_TARGET = process.env.VITE_API_TARGET ?? 'http://localhost:3000';
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), tailwindcss()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
