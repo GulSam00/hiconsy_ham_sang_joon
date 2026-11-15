@@ -77,21 +77,26 @@ issues/
 ## 5. 도메인 정책 (규칙 해석)
 
 과제 문서가 모호한 부분은 아래로 확정합니다. 정책을 바꾸면 **이 표, `docs/`, 관련 테스트를 함께** 수정합니다.
+신청 상태·행위별 이력·불변 조건 등 상세는 [`docs/visit-policy.md`](./docs/visit-policy.md)에 있습니다.
 
 | # | 항목 | 정책 |
 |---|---|---|
 | R1 | 정원 | 자습실별 **활성(ACTIVE) 신청 총수** ≤ `maxPersonnel`. 시간대별 정원이 아님 |
 | R2 | 방문 시간 | 단일 시점 `visitAt` |
 | R3 | 중복 신청 | (자습실, 학생)당 신청 레코드 1개. **취소 후 재신청은 허용**하며 같은 레코드를 다시 활성화함 |
-| R4 | 운영 기간 | `startDate ≤ visitAt ≤ endDate` (양 끝 포함). 현재 시각 이전은 신청·수정 불가 |
-| R5 | 지난 방문 | `visitAt`이 지난 신청은 수정·취소 불가 |
-| R6 | 정원 축소 | 새 `maxPersonnel`이 현재 활성 신청 수보다 작으면 **거부(409)** |
-| R7 | 기간 변경 | 변경된 기간 밖으로 밀려나는 활성 신청이 있으면 **거부(409)** 하고 해당 신청 목록을 응답에 포함 |
-| R8 | 자습실 삭제 | Soft Delete 허용. 활성 신청은 같은 트랜잭션에서 **시스템 취소**(`SYSTEM_CANCELED`, actor `SYSTEM`) |
-| R9 | 학생 삭제 | Soft Delete 허용. 활성 신청은 R8과 같은 방식으로 시스템 취소 |
+| R4 | 운영 기간 | `startDate ≤ visitAt ≤ endDate` (양 끝 포함). 신청·시간 수정 시 `visitAt ≥ now`여야 함 |
+| R5 | 지난 방문 | **`visitAt < now`인 ACTIVE 신청**. 상태로 저장하지 않고 조회 시 계산함. 학생·강사 모두 수정·취소 불가. 정원은 계속 차지함(R1) |
+| R6 | 정원 축소 | 새 `maxPersonnel`이 활성 신청 수(지난 방문 포함)보다 작으면 **거부(409)**. 응답에 강사가 취소할 수 있는 예정 신청 목록을 포함 |
+| R7 | 기간 변경 | 변경된 기간 밖으로 밀려나는 활성 신청(지난 방문 포함)이 있으면 **거부(409)** 하고 해당 신청 목록을 응답에 포함. 예정 신청은 강사 취소(R11)로 해소 가능, 지난 방문은 해소 불가 |
+| R8 | 자습실 삭제 | Soft Delete 허용. **예정 신청만** 같은 트랜잭션에서 **시스템 취소**(`SYSTEM_CANCELED`, actor `SYSTEM`, 사유 기록). 지난 방문은 기록으로 `ACTIVE` 유지 |
+| R9 | 학생 삭제 | Soft Delete 허용. 예정 신청만 R8과 같은 방식으로 시스템 취소 |
 | R10 | 시간대 | DB에는 UTC로 저장, API는 ISO 8601(UTC), 화면은 KST로 표시 |
+| R11 | 강사 취소 | 강사는 **예정 신청**을 **사유(필수, 최대 200자)**와 함께 취소할 수 있음. 이력은 `CANCELED` + actor `TEACHER` |
+| R12 | 동일 시각 수정 | 현재와 같은 시각으로 수정하면 아무것도 바꾸지 않고 200 반환. **이력을 남기지 않음** |
 
-원칙: **데이터를 조용히 바꾸지 않는다.** 강사의 수정이 학생 신청과 충돌하면 거부하고 이유를 알려줍니다. 삭제처럼 명시적 의도가 있을 때만 시스템이 신청을 취소하고, 그 사실을 이력에 남깁니다.
+원칙
+- **데이터를 조용히 바꾸지 않는다.** 강사의 수정이 학생 신청과 충돌하면 거부하고 이유를 알려줍니다. 강사는 충돌하는 신청을 직접 골라 사유와 함께 취소(R11)한 뒤 다시 시도합니다. 삭제처럼 명시적 의도가 있을 때만 시스템이 신청을 취소하고, 그 사실을 이력에 남깁니다.
+- **이미 일어난 일은 바꾸지 않는다.** 지난 방문은 누구도 수정·취소할 수 없고, 삭제 시에도 시스템 취소 대상에서 제외합니다.
 
 ## 6. 데이터 모델 규칙
 
@@ -136,22 +141,40 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 
 - 취소 시 감소는 `status === ACTIVE`인 경우에만 수행해 카운터가 음수가 되지 않게 합니다.
 - 메모리 뮤텍스(`async-mutex` 등)로 정원을 지키지 않습니다. 서버가 여러 대가 되면 깨집니다.
+- 정원 축소(R6)도 같은 방식입니다. `WHERE activeCount <= 새 정원` 조건을 건 UPDATE 한 문장으로 바꾸고, 0건이면 `CAPACITY_BELOW_ACTIVE`입니다.
+- `activeCount`를 바꾸는 곳은 `VisitsService`와 삭제 처리(R8, R9)뿐입니다.
+
+### 상태 전이도 조건부 UPDATE로
+
+- 신청의 상태 변경(취소, 시간 수정)은 `WHERE id = ? AND status = 'ACTIVE'` 조건을 건 UPDATE로 합니다. 0건이면 이미 취소된 것으로 보고 `VISIT_ALREADY_CANCELED`를 반환합니다.
+- 학생과 강사가 같은 신청을 동시에 취소해도 한쪽만 성공하고, 정원 카운터가 두 번 빠지지 않습니다.
 
 ### 시간은 Clock으로
 
 - 도메인 로직에서 `new Date()`, `Date.now()`를 직접 호출하지 않습니다. `Clock`을 주입받아 `clock.now()`를 씁니다.
 - 테스트에서는 고정 시각 Clock을 주입합니다.
+- `VisitHistory.createdAt`은 DB 기본값에 맡기지 않고 **서비스가 `clock.now()`로 지정**합니다. 이력의 시간순 정렬을 테스트에서 검증할 수 있게 하기 위함입니다. 같은 시각이면 `id` 순으로 정렬합니다.
 
 ### 비즈니스 규칙은 순수 함수로
 
-- 검증 규칙(R1~R7)은 `modules/*/*.policy.ts`의 **순수 함수**로 작성합니다. Prisma, Nest에 의존하지 않습니다.
+- 검증 규칙(R1~R7, R11, R12)은 `modules/*/*.policy.ts`의 **순수 함수**로 작성합니다. Prisma, Nest에 의존하지 않습니다.
 - 서비스는 "데이터 조회 → policy 호출 → 저장"을 조율만 합니다.
 
 ### 요청자 식별
 
-- 로그인은 없지만, 학생 요청은 `X-Student-Id` 헤더와 `@CurrentStudent()` 데코레이터로 요청자를 식별합니다.
-- 본인 신청이 아니면 `403 FORBIDDEN_VISIT_OWNER`를 반환합니다.
-- 나중에 JWT로 바꿀 때 Guard와 데코레이터만 교체하면 되도록, 컨트롤러·서비스가 헤더를 직접 읽지 않습니다.
+로그인은 없지만, 요청자 정보는 **body가 아니라 헤더**로 받습니다. 근거는 [`docs/visit-policy.md`](./docs/visit-policy.md) 6절에 있습니다.
+
+| 헤더 | 값 | 필수 |
+|---|---|---|
+| `X-Actor-Role` | `TEACHER` \| `STUDENT` | 모든 API (health 제외) |
+| `X-Student-Id` | 학생 id (양의 정수) | `X-Actor-Role: STUDENT`일 때 |
+
+- 헤더 파싱·검증은 `parseActor()` 한 곳에서만 합니다. 헤더가 없거나 형식이 틀리면 `401 ACTOR_REQUIRED`입니다.
+- 역할 검사는 `@Roles(...)` 데코레이터 + `RolesGuard`로 합니다. Guard는 DTO 검증보다 먼저 실행되므로, 권한이 없으면 검증 에러보다 `403 FORBIDDEN_ROLE`이 먼저 나갑니다.
+- 컨트롤러는 `@CurrentActor()`로 요청자를 받습니다. 컨트롤러·서비스가 헤더를 직접 읽지 않습니다. 나중에 JWT로 바꿀 때 `parseActor()`만 교체하면 됩니다.
+- 학생이 다른 학생의 신청을 수정·취소하면 `403 FORBIDDEN_VISIT_OWNER`입니다.
+- 이력의 `actorType`은 **서버가 요청자 정보에서 정합니다.** 클라이언트가 보낸 값을 저장하지 않습니다.
+- 헤더는 누구나 조작할 수 있으므로 보안 장치가 아닙니다. 과제가 로그인 생략을 허용한 데 따른 한계이며, README에 명시합니다.
 
 ## 8. API 컨벤션
 
@@ -164,10 +187,13 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 { "statusCode": 409, "code": "ROOM_FULL", "message": "자습실 정원이 가득 찼습니다.", "timestamp": "2026-11-15T03:00:00.000Z" }
 ```
 
+- 추가 정보가 필요한 에러는 선택 필드 `details`에 담습니다. 예: R6의 취소 가능한 예정 신청 목록, R7의 충돌 신청 목록.
+
 | HTTP | 용도 | 예시 code |
 |---|---|---|
-| 400 | DTO 검증 실패 | `VALIDATION_FAILED` |
-| 403 | 권한 없음 | `FORBIDDEN_VISIT_OWNER` |
+| 400 | DTO 검증 실패 | `VALIDATION_FAILED`, `CANCEL_REASON_REQUIRED` |
+| 401 | 요청자 헤더 없음·형식 오류 | `ACTOR_REQUIRED` |
+| 403 | 권한 없음 | `FORBIDDEN_ROLE`, `FORBIDDEN_VISIT_OWNER` |
 | 404 | 없거나 삭제됨 | `ROOM_NOT_FOUND`, `STUDENT_NOT_FOUND`, `VISIT_NOT_FOUND` |
 | 409 | 현재 상태와 충돌 | `ROOM_FULL`, `DUPLICATE_VISIT`, `VISIT_ALREADY_CANCELED`, `VISIT_ALREADY_PASSED`, `CAPACITY_BELOW_ACTIVE`, `PERIOD_EXCLUDES_VISITS` |
 | 422 | 형식은 맞지만 규칙 위반 | `VISIT_OUT_OF_PERIOD`, `VISIT_IN_PAST`, `INVALID_PERIOD` |
