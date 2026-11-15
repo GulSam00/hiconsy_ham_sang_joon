@@ -40,11 +40,15 @@ export class VisitsController {
   }
 
   @ApiOperation({
-    summary: '방문 취소 (학생 본인)',
-    description: '삭제가 아니라 상태 전이입니다. 신청 기록과 이력은 남고 정원은 돌아옵니다.',
+    summary: '방문 취소 (학생 본인, 강사)',
+    description:
+      '삭제가 아니라 상태 전이입니다. 신청 기록과 이력은 남고 정원은 돌아옵니다.\n\n' +
+      '- 학생: 본인 신청만, 사유 선택\n' +
+      '- 강사(R11): 모든 예정 신청, **사유 필수**. 정원 축소(R6)·기간 변경(R7) 충돌을 풀 때 씁니다.',
   })
   @ApiOkResponse({ type: VisitResponseDto })
-  @Roles(ACTOR_ROLE.STUDENT)
+  @ApiDomainErrors(ERROR_CODE.CANCEL_REASON_REQUIRED)
+  @Roles(ACTOR_ROLE.STUDENT, ACTOR_ROLE.TEACHER)
   @HttpCode(HttpStatus.OK)
   @Post(':id/cancel')
   cancel(

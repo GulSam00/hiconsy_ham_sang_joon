@@ -1,10 +1,12 @@
 import { ACTOR_ROLE, ERROR_CODE, type Actor } from '@study-room/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  checkCancelReason,
   checkChangeable,
   checkNotDuplicated,
   checkVisitTime,
   isSameVisitTime,
+  normalizeCancelReason,
   type VisitSnapshot,
 } from './visits.policy';
 
@@ -108,5 +110,30 @@ describe('isSameVisitTime (R12)', () => {
     expect(
       isSameVisitTime(new Date('2026-11-16T10:00:00.000Z'), new Date('2026-11-16T10:00:00.001Z')),
     ).toBe(false);
+  });
+});
+
+describe('normalizeCancelReason', () => {
+  it.each<[string | undefined, string | undefined]>([
+    [undefined, undefined],
+    ['', undefined],
+    ['   ', undefined],
+    ['  정원 축소  ', '정원 축소'],
+  ])('%j → %j', (input, expected) => {
+    expect(normalizeCancelReason(input)).toBe(expected);
+  });
+});
+
+describe('checkCancelReason (R11)', () => {
+  it('강사는 사유가 없으면 CANCEL_REASON_REQUIRED', () => {
+    expect(codeOf(checkCancelReason(TEACHER, undefined))).toBe(ERROR_CODE.CANCEL_REASON_REQUIRED);
+  });
+
+  it('강사가 사유를 주면 통과', () => {
+    expect(checkCancelReason(TEACHER, '정원 축소').ok).toBe(true);
+  });
+
+  it('학생은 사유가 없어도 통과', () => {
+    expect(checkCancelReason(OWNER, undefined).ok).toBe(true);
   });
 });

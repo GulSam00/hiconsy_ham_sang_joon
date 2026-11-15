@@ -19,10 +19,12 @@ import {
 } from './dto/visit-response.dto';
 import { actorTypeOf, visitHistory } from './visit-history.factory';
 import {
+  checkCancelReason,
   checkChangeable,
   checkNotDuplicated,
   checkVisitTime,
   isSameVisitTime,
+  normalizeCancelReason,
 } from './visits.policy';
 
 type Tx = Prisma.TransactionClient;
@@ -148,13 +150,19 @@ export class VisitsService {
     });
   }
 
-  /** FR-VST-03: 취소. 정원을 돌려준다 (R5). */
+  /**
+   * FR-VST-03(학생 본인), R11(강사): 취소. 정원을 돌려준다 (R5).
+   * 강사는 사유가 필수이고 소유자 검사를 받지 않는다. 이력의 행위 주체는 요청자 역할로 정해진다.
+   */
   async cancel(
     visitId: number,
     actor: Actor,
-    reason: string | undefined,
+    rawReason: string | undefined,
   ): Promise<VisitResponseDto> {
     const now = this.clock.now();
+    const reason = normalizeCancelReason(rawReason);
+    assertPolicy(checkCancelReason(actor, reason));
+
     return this.prisma.$transaction(async (tx) => {
       const visit = await findVisit(tx, visitId);
       assertPolicy(checkChangeable(visit, actor, now));

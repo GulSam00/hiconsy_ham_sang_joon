@@ -50,3 +50,25 @@ export function checkChangeable(visit: VisitSnapshot, actor: Actor, now: Date): 
 export function isSameVisitTime(current: Date, next: Date): boolean {
   return current.getTime() === next.getTime();
 }
+
+/**
+ * 취소 사유 정규화. 앞뒤 공백을 지우고, 비어 있으면 "사유 없음"(undefined)으로 본다.
+ * `"   "` 같은 값이 사유로 저장되어 학생 화면에 빈 사유가 보이는 것을 막는다.
+ */
+export function normalizeCancelReason(reason: string | undefined): string | undefined {
+  const trimmed = reason?.trim();
+  return trimmed === undefined || trimmed === '' ? undefined : trimmed;
+}
+
+/**
+ * R11: 강사가 취소할 때는 사유가 필수다. 학생에게 "누가 왜 취소했는지"를 보여줘야 하기 때문이다.
+ * 학생 본인 취소는 사유가 선택이다.
+ *
+ * @param reason normalizeCancelReason을 거친 값
+ */
+export function checkCancelReason(actor: Actor, reason: string | undefined): PolicyResult {
+  if (actor.role === ACTOR_ROLE.TEACHER && reason === undefined) {
+    return violation(ERROR_CODE.CANCEL_REASON_REQUIRED);
+  }
+  return POLICY_OK;
+}
