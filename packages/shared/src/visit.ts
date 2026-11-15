@@ -63,3 +63,27 @@ export interface VisitHistoryResponse {
   reason: string | null;
   createdAt: string;
 }
+
+/** 내 신청 목록의 자습실 요약 */
+export interface MyVisitRoom {
+  id: number;
+  title: string;
+  startDate: string;
+  endDate: string;
+  /** 삭제된 자습실이면 true. 지난 방문 기록이나 시스템 취소 사유를 보여주기 위해 목록에 남긴다 */
+  isDeleted: boolean;
+}
+
+/** 취소된 신청의 취소 정보 ("누가 왜 취소했는지", docs/visit-policy.md 5절) */
+export interface CancellationInfo {
+  by: HistoryActor;
+  reason: string | null;
+  canceledAt: string;
+}
+
+/** 학생 본인의 신청 (FR-VST-04) */
+export interface MyVisitResponse extends VisitResponse {
+  room: MyVisitRoom;
+  /** CANCELED일 때만 값이 있다 */
+  cancellation: CancellationInfo | null;
+}

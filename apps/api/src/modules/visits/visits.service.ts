@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { isWithinPeriod } from '../rooms/rooms.policy';
 import {
+  MyVisitResponseDto,
   RoomVisitResponseDto,
   VisitHistoryResponseDto,
   VisitResponseDto,
@@ -205,6 +206,40 @@ export class VisitsService {
         now,
       );
     });
+  }
+
+  /**
+   * FR-VST-04: 학생 본인의 신청 목록 (방문 시각순).
+   * 삭제된 자습실의 신청도 포함한다. 지난 방문 기록과 시스템 취소 사유를 학생이 확인할 수 있어야 하기 때문이다.
+   * 취소 정보는 신청마다 마지막 이력 1건에서 만든다.
+   *
+   * 쿼리는 신청 수와 무관하게 3개(신청, 자습실 IN, 이력 IN)라 N+1이 없다(SQL 로그로 확인).
+   * 다만 관계별 `take: 1`은 SQL이 아니라 Prisma가 메모리에서 적용하므로, 이 학생의 이력 전체를 읽는다.
+   * 학생 한 명의 이력은 신청 수 × 변경 횟수 수준이라 감당할 만하다. 커지면 마지막 이력을 Visit에 비정규화한다.
+   */
+  async findMine(studentId: number): Promise<MyVisitResponseDto[]> {
+    const now = this.clock.now();
+    const student = await this.prisma.student.findFirst({
+      where: { id: studentId, ...NOT_DELETED },
+      select: { id: true },
+    });
+    if (student === null) {
+      throw new DomainException(ERROR_CODE.STUDENT_NOT_FOUND);
+    }
+
+    const visits = await this.prisma.visit.findMany({
+      where: { studentId },
+      orderBy: [{ visitAt: 'asc' }, { id: 'asc' }],
+      include: {
+        room: true,
+        histories: {
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 1,
+          select: { actorType: true, reason: true, createdAt: true },
+        },
+      },
+    });
+    return visits.map((visit) => MyVisitResponseDto.fromMine(visit, visit.histories[0], now));
   }
 
   /** 자습실 상세: 신청자 목록 (방문 시각순) */
