@@ -249,6 +249,8 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - 요청자 헤더(`X-Actor-Role`, `X-Student-Id`)는 `src/api/client.ts`의 인터셉터에서만 붙입니다. API 함수·화면은 헤더를 신경 쓰지 않습니다.
 - API 에러는 클라이언트 경계에서 `ApiError`(`src/api/api-error.ts`)로 바꿉니다. 화면은 `error.code`로 분기하고, 서버 응답이 없으면 `NETWORK_ERROR`입니다.
 - 재시도: query는 네트워크·5xx만 최대 2번, 4xx는 재시도하지 않습니다. mutation은 재시도하지 않습니다(`src/queries/query-client.ts`).
+- `staleTime`은 0입니다(화면을 열 때마다 다시 가져옴). 강사·학생이 같은 데이터를 바꾸므로 요청 수보다 최신성이 중요합니다. 30초로 두었다가 강사 취소가 학생 화면에 바로 반영되지 않는 문제를 발견해 바꿨습니다(ISSUE-011).
+- 신청을 바꾸는 쓰기(신청·시간 변경·취소)는 `rooms`와 `me` 범위를 함께 무효화합니다. 강사·학생 화면이 같은 훅(`useCancelVisit` 등)을 씁니다.
 - 요청자가 무효해지면(401, 학생 요청자의 `STUDENT_NOT_FOUND`) 전역 에러 처리(`main.ts`)가 역할을 지우고 역할 선택으로 보냅니다.
 - 화면 접근 제한은 라우트 `meta.role` + `redirectFor()`(순수 함수)로 합니다. 이는 편의 기능이고, 실제 권한은 서버가 검사합니다.
 - 일시 표시는 `formatKst()`, `datetime-local` 입력은 `toKstInputValue()` / `fromKstInputValue()`만 씁니다. 컴포넌트에서 `Date`를 직접 다루지 않습니다.

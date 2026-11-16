@@ -10,7 +10,7 @@ const actorStore = useActorStore();
 const { selected } = storeToRefs(actorStore);
 const router = useRouter();
 
-/** 역할별 메뉴. 학생 메뉴는 ISSUE-011에서 채운다. */
+/** 역할별 메뉴 */
 const navItems = computed(() => {
   const role = selected.value?.role;
   if (role === ACTOR_ROLE.TEACHER) {
@@ -20,7 +20,10 @@ const navItems = computed(() => {
     ];
   }
   if (role === ACTOR_ROLE.STUDENT) {
-    return [{ name: ROUTE_NAME.STUDENT_ROOMS, label: '자습실' }];
+    return [
+      { name: ROUTE_NAME.STUDENT_ROOMS, label: '자습실' },
+      { name: ROUTE_NAME.STUDENT_VISITS, label: '내 신청' },
+    ];
   }
   return [];
 });

@@ -6,6 +6,7 @@ export const ROUTE_NAME = {
   TEACHER_ROOM_DETAIL: 'teacher-room-detail',
   TEACHER_STUDENTS: 'teacher-students',
   STUDENT_ROOMS: 'student-rooms',
+  STUDENT_VISITS: 'student-visits',
   NOT_FOUND: 'not-found',
 } as const;
 
