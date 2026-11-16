@@ -11,6 +11,15 @@
     "node": ">=22.12.0",
     "npm": ">=10.0.0"
   },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "@prisma/engines@7.10.1": true,
+    "prisma@7.10.1": true,
+    "esbuild@0.28.2": true,
+    "@swc/core@1.16.22": true,
+    "vue-demi@0.14.10": true,
+    "@scarf/scarf": false
+  },
   "scripts": {
     "postinstall": "npm run build:shared && npm run db:generate",
     "build:shared": "npm run build -w @study-room/shared",

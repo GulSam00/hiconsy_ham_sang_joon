@@ -25,6 +25,8 @@
 - [x] 새로 clone한 디렉터리에서 README 절차(`npm install` → `npm run dev`) 동작 확인
 - [x] 같은 디렉터리에서 `npm run verify` 통과
 - [x] CLAUDE.md 명령어 표 갱신
+- [x] 소유자 PC에서 발견한 설치 실패(낮은 npm) 대응: 버전 표, nvm 안내, npm 문제 해결을 README에 추가
+- [x] Node 24에서 클린 clone `verify` 확인, npm 11 설치 스크립트 정책(`allowScripts`) 확정
 
 ## 설계 메모
 
@@ -68,6 +70,14 @@
 | 브라우저 흐름 (Chromium, 실제 API) | 강사: 신청자 표시 → 정원 축소 충돌 → 사유 취소 → 다시 저장 성공 → 삭제 → 학생 관리. 학생: 정원 마감 표시 → 신청 → 시간 변경 → 본인 취소 → 다시 신청 → 강사 취소 사유 표시 → 삭제된 학생은 역할 선택으로. 자바스크립트 오류 없음 (콘솔의 409·404는 의도된 응답) |
 | `npm run verify` | 통과 (api 110, web 97, e2e 103) |
 
+**Node 24 + npm 11** (소유자 PC와 같은 Node 24.22.1, npm 11.21.2. 클린 clone)
+
+| 단계 | 결과 |
+|---|---|
+| `npm install` | 성공. `allowScripts` 추가 전에는 설치 스크립트 7개 "미검토" 경고, 추가 후에는 경고 없음 |
+| `npm run verify` | 통과 (api 110, web 97, e2e 103) |
+| npm 10(Node 22)에서 `allowScripts` 추가 후 `npm install` | 성공, `package-lock.json` 변화 없음 (필드 무시) |
+
 이 머신의 npm 캐시는 남아 있으므로, "깨끗한 디렉터리" 검증이지 "깨끗한 머신" 검증은 아니다.
 
 **Docker** (`docker compose up`)
@@ -95,3 +105,7 @@
 | 2026-11-16 | **`npm audit` 경고(moderate 12건)는 고치지 않고 README에 이유를 적음** | 전부 개발 도구(ESLint 플러그인, 테스트 유틸)가 쓰는 `minimatch`·`glob` 경로이고 운영 의존성은 0건이다. `npm audit fix --force`가 제안하는 것은 typescript-eslint 8.72 → 8.36, @vue/test-utils 2.6 → 2.4로 **내리는** 변경이라 TypeScript 6 고정과 충돌할 수 있다. 평가자가 설치 경고를 보고 의아해하지 않게 README "알려진 한계"에 적었다. |
 | 2026-11-16 | **Node 버전 미달 시 동작을 직접 확인해 README에 오류 코드를 적음** | "`engine-strict`로 멈춘다"는 추측이었다. 요구 버전을 높인 임시 프로젝트로 `npm install`이 `EBADENGINE`으로 실패함을 확인하고, 평가자가 오류를 보고 원인을 알 수 있게 코드를 적었다. |
 | 2026-11-16 | **README의 이름·역할·조건을 코드와 대조** | 문서의 함수 이름(`checkVisitTime`), 조건부 UPDATE 조건(취소의 `visitAt >= now`, 신청의 운영 기간), API별 허용 역할을 소스에서 확인했다. 문서가 코드와 다르면 평가자를 잘못 안내한다. |
+| 2026-11-16 | **README에 검증한 Node·npm 버전 표와 nvm 안내 추가 (소유자 PC에서 발견)** | 소유자 PC에서 `npm install`이 `EBADENGINE`으로 실패했다. Node는 24로 조건을 만족했지만, 예전에 전역 설치한 npm 8.1.4가 Node에 포함된 npm 11을 가리고 있었다. README에는 "Node 22.12 이상"만 있어 원인을 찾기 어려웠다. 조건(Node·npm)과 실제로 검증한 버전을 표로 나누고, nvm(macOS/Linux는 `.nvmrc`, Windows는 버전 직접 지정)과 "Node는 맞는데 npm이 낮은 경우"의 확인·해결 방법을 적었다. `engines`의 npm 조건은 완화하지 않았다. Node 22 이상에서 npm이 10 미만이면 환경이 꼬였다는 신호이므로 설치 전에 멈추는 편이 낫다. |
+| 2026-11-16 | **`.nvmrc`를 `22`에서 `22.23.4`로 고정** | `22`는 22.0~22.11도 포함해 실제 필요 조건(22.12)을 보장하지 못한다. 정확한 버전 고정 규칙에 맞춰, 전체 `verify`를 통과시킨 버전으로 고정했다. `engines`는 범위(`>=22.12.0`)로 둔다. 실행 가능한 범위와 권장 버전은 다르다. |
+| 2026-11-16 | **Node 24를 지원 범위로 확인** | 소유자 환경이 Node 24다. 추측으로 "될 것"이라 하지 않고, 같은 24.22.1과 npm 11로 클린 clone `install`·`verify`를 통과시킨 뒤 README 표에 적었다. |
+| 2026-11-16 | **`allowScripts`로 설치 스크립트를 버전 단위로 허용, `@scarf/scarf`는 거부** | npm 11 문서에 따르면 이 필드는 현재 권고(스크립트는 실행됨)지만, 이후 버전은 검토되지 않은 설치 스크립트를 막는다. 막히면 better-sqlite3 네이티브 바이너리와 Prisma 엔진이 설치되지 않아 실행이 깨진다. 필요한 6개만 `npm approve-scripts`로 버전을 고정해 허용했다(업그레이드 시 다시 검토하게 됨). `@scarf/scarf`는 Swagger UI가 끌어오는 사용 통계 전송 스크립트라 기능과 무관해 `npm deny-scripts`로 거부했다. npm 10은 이 필드를 무시함을 확인했다. |

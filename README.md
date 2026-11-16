@@ -17,10 +17,77 @@
 
 ### 요구 사항
 
-- **Node.js 22.12 이상** (`.nvmrc`), npm 10 이상
-  - 22.12 미만에서는 `npm install`이 `EBADENGINE` 오류로 멈춥니다(`.npmrc`의 `engine-strict`). 실행 중에 알 수 없는 오류로 깨지는 대신 설치 단계에서 이유를 알려주려는 설정입니다. API(CommonJS)가 공용 패키지(ESM)를 `require(esm)`으로 불러오기 때문에 이 버전이 필요합니다.
-  - Node를 맞추기 어렵다면 아래 [Docker로 실행](#docker로-실행)을 쓰세요.
+| 항목 | 조건 | 검증한 버전 |
+|---|---|---|
+| Node.js | **22.12 이상** | 22.23.4 (`.nvmrc`), 24.22.1 |
+| npm | **10 이상** (Node에 포함된 npm) | 10.9.9 (Node 22), 11.21.2 (Node 24) |
+
 - 별도 DB 설치, `.env` 파일, 외부 서비스가 **필요 없습니다.** DB는 SQLite 파일이며 첫 실행 때 자동으로 만들어집니다.
+- 조건이 맞지 않으면 `npm install`이 `EBADENGINE` 오류로 바로 멈춥니다(`.npmrc`의 `engine-strict`). 실행 중에 원인 모를 오류로 깨지는 대신, 설치 단계에서 이유를 알려주려는 설정입니다.
+  - Node 22.12가 필요한 이유: API(CommonJS)가 공용 패키지(ESM)를 `require(esm)`으로 불러오기 때문입니다.
+- Node를 맞추기 어렵다면 아래 [Docker로 실행](#docker로-실행)을 쓰세요.
+
+먼저 버전을 확인합니다.
+
+```bash
+node -v
+```
+
+```bash
+npm -v
+```
+
+<details>
+<summary><b>버전 관리자(nvm)로 맞추기</b></summary>
+
+macOS / Linux ([nvm](https://github.com/nvm-sh/nvm)): 저장소의 `.nvmrc`를 읽습니다.
+
+```bash
+nvm install
+```
+
+```bash
+nvm use
+```
+
+Windows ([nvm-windows](https://github.com/coreybutler/nvm-windows)): `.nvmrc`를 읽지 않으므로 버전을 직접 지정합니다.
+
+```powershell
+nvm install 22.23.4
+```
+
+```powershell
+nvm use 22.23.4
+```
+
+</details>
+
+<details>
+<summary><b>Node는 맞는데 npm 버전이 낮다고 나오는 경우</b> (예: <code>"npm":"8.1.4","node":"v24.x"</code>)</summary>
+
+Node 22 이상에는 npm 10 이상이 함께 설치됩니다. 그런데도 낮은 npm이 잡힌다면, 예전에 전역으로 따로 설치한 npm(`npm install -g npm@8` 등)이 PATH에서 Node에 포함된 npm보다 앞에 있는 것입니다. 이 상태의 npm은 이 프로젝트가 아니어도 최신 Node에서 오동작할 수 있습니다.
+
+Windows (PowerShell)에서 어떤 npm이 잡히는지 확인합니다. PowerShell의 `where`는 다른 명령이므로 `where.exe`를 씁니다.
+
+```powershell
+where.exe npm
+```
+
+첫 줄이 `...\AppData\Roaming\npm\npm.cmd`라면, 따로 설치한 npm만 지웁니다(다른 전역 패키지는 그대로 남습니다).
+
+```powershell
+Remove-Item "$env:APPDATA\npm\npm", "$env:APPDATA\npm\npm.cmd", "$env:APPDATA\npm\npm.ps1", "$env:APPDATA\npm\npx", "$env:APPDATA\npm\npx.cmd", "$env:APPDATA\npm\npx.ps1" -ErrorAction SilentlyContinue
+```
+
+```powershell
+Remove-Item "$env:APPDATA\npm\node_modules\npm" -Recurse -Force -ErrorAction SilentlyContinue
+```
+
+터미널을 새로 열고 `npm -v`가 10 이상인지 확인합니다. nvm-windows를 쓴다면 `nvm use {버전}`을 다시 실행해도 npm 링크가 다시 잡힙니다.
+
+macOS / Linux에서는 `which -a npm`으로 확인합니다.
+
+</details>
 
 ### 실행
 
@@ -113,6 +180,8 @@ npm run verify
 | 테스트 | **Vitest** (api는 SWC 변환) | Jest(CJS)는 ESM인 공용 패키지를 불러오지 못합니다. Vitest가 쓰는 esbuild는 데코레이터 메타데이터를 만들지 않아 Nest DI가 동작하지 않으므로, api만 `unplugin-swc`로 변환합니다. |
 
 버전은 모두 정확히 고정했습니다(`.npmrc`의 `save-exact`, `package-lock.json` 커밋). npm `latest`가 RC를 가리키는 Prisma는 안정판 7.x로, 생태계(typescript-eslint, Nest CLI)가 아직 7을 지원하지 않는 TypeScript는 6.0.3으로 고정했습니다.
+
+설치 중에 실행되는 스크립트도 `package.json`의 `allowScripts`에 버전 단위로 정해 두었습니다. npm 11은 검토되지 않은 설치 스크립트를 경고하고, 이후 버전에서는 기본으로 막을 예정입니다. 막히면 SQLite 네이티브 바이너리(better-sqlite3)와 Prisma 엔진이 설치되지 않아 실행이 깨지므로 필요한 것만 허용했고, 사용 통계를 보내는 `@scarf/scarf`(Swagger UI 의존성)는 거부했습니다. npm 10은 이 필드를 무시하므로 영향이 없습니다.
 
 ---
 
