@@ -9,6 +9,10 @@ export const queryKeys = {
     all: ['students'] as const,
     list: () => [...queryKeys.students.all, 'list'] as const,
   },
+  me: {
+    all: ['me'] as const,
+    visits: () => [...queryKeys.me.all, 'visits'] as const,
+  },
   rooms: {
     all: ['rooms'] as const,
     list: () => [...queryKeys.rooms.all, 'list'] as const,
