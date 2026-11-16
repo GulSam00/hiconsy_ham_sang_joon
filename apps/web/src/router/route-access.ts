@@ -3,6 +3,8 @@ import { ACTOR_ROLE, type Actor, type ActorRole } from '@study-room/shared';
 export const ROUTE_NAME = {
   ROLE_SELECT: 'role-select',
   TEACHER_ROOMS: 'teacher-rooms',
+  TEACHER_ROOM_DETAIL: 'teacher-room-detail',
+  TEACHER_STUDENTS: 'teacher-students',
   STUDENT_ROOMS: 'student-rooms',
   NOT_FOUND: 'not-found',
 } as const;
@@ -33,4 +35,15 @@ export function redirectFor(
     return ROUTE_NAME.ROLE_SELECT;
   }
   return actor.role === required ? null : homeOf(actor.role);
+}
+
+const POSITIVE_INTEGER = /^[1-9]\d*$/;
+
+/** 경로의 id 파라미터. 양의 정수가 아니면 null (서버의 ParseIdPipe와 같은 규칙) */
+export function parseRouteId(raw: string | string[] | undefined): number | null {
+  if (typeof raw !== 'string' || !POSITIVE_INTEGER.test(raw)) {
+    return null;
+  }
+  const id = Number(raw);
+  return Number.isSafeInteger(id) ? id : null;
 }

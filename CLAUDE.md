@@ -253,6 +253,10 @@ if (count === 0) throw new DomainException(ErrorCode.ROOM_FULL);
 - 화면 접근 제한은 라우트 `meta.role` + `redirectFor()`(순수 함수)로 합니다. 이는 편의 기능이고, 실제 권한은 서버가 검사합니다.
 - 일시 표시는 `formatKst()`, `datetime-local` 입력은 `toKstInputValue()` / `fromKstInputValue()`만 씁니다. 컴포넌트에서 `Date`를 직접 다루지 않습니다.
 - 버튼 활성 여부 같은 화면 상태는 "고른 id"가 아니라 **실제로 찾은 대상**으로 판단합니다(목록 갱신·잘못된 값에도 눌러도 반응 없는 버튼이 생기지 않게).
+- 폼 검증·서버 필드 오류 매핑·충돌(details) 해석은 `src/utils/`의 **순수 함수**로 두고 단위 테스트합니다. 서버 응답의 `details`는 형태를 믿지 않고 타입 가드로 확인합니다.
+- 캐시: 쓰기 후에는 영향을 받는 범위(`queryKeys`의 상위 키)를 무효화합니다. **삭제**는 그 자원의 상세 캐시를 `removeQueries`로 지우고(404 재요청 방지), 목록 캐시에서 즉시 뺍니다(비활성 목록의 옛 데이터가 잠깐 보이는 것 방지).
+- TanStack Query가 돌려준 데이터·에러 객체는 직접 수정하지 않습니다. 화면에서 걸러 보여줄 때는 새 값을 만듭니다(예: `withoutVisits`).
+- 대화상자는 `BaseDialog`(`role="dialog"`, `aria-modal`, Esc 닫기, 열릴 때 포커스 이동)를 씁니다. 되돌릴 수 없는 동작(삭제, 취소)은 결과를 설명하는 확인 단계를 둡니다.
 
 ## 10. 테스트 규칙
 

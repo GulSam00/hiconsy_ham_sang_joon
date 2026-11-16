@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROUTE_NAME, redirectFor } from './route-access';
+import { ROUTE_NAME, parseRouteId, redirectFor } from './route-access';
 
 describe('redirectFor', () => {
   const teacher = { role: 'TEACHER' } as const;
@@ -21,5 +21,20 @@ describe('redirectFor', () => {
   it('다른 역할의 화면이면 내 첫 화면으로', () => {
     expect(redirectFor('TEACHER', student)).toBe(ROUTE_NAME.STUDENT_ROOMS);
     expect(redirectFor('STUDENT', teacher)).toBe(ROUTE_NAME.TEACHER_ROOMS);
+  });
+});
+
+describe('parseRouteId', () => {
+  it.each<[string | string[] | undefined, number | null]>([
+    ['7', 7],
+    ['0', null],
+    ['-1', null],
+    ['01', null],
+    ['abc', null],
+    [['1', '2'], null],
+    [undefined, null],
+    ['9007199254740993', null],
+  ])('%j → %j', (raw, expected) => {
+    expect(parseRouteId(raw)).toBe(expected);
   });
 });
