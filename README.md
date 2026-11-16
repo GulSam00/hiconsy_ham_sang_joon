@@ -324,3 +324,6 @@ ERD: [docs/erd.md](./docs/erd.md) · 스키마 원본: [`schema.prisma`](./apps/
   - 단, 자습실 수정의 `NOT EXISTS` 조건은 PostgreSQL 기본 격리 수준에서 동시 커밋을 못 볼 수 있습니다. 자습실 행을 먼저 잠그는 방식(`SELECT … FOR UPDATE`)으로 바꿔야 합니다([상세](./docs/architecture.md#3-동시성-설계)).
 - **페이지네이션이 없습니다.** 자습실·이력 수가 강사 한 명 규모(수십~수백 건)라고 보았습니다. 늘어나면 `(roomId, createdAt)` 인덱스를 이용한 커서 방식으로 추가합니다.
 - **Docker 구성의 웹 서버(`vite preview`)는 운영용이 아닙니다.** 실제 배포에서는 정적 파일을 nginx·CDN이 서빙하고 `/api`만 API 서버로 보내는 리버스 프록시를 둡니다.
+- **`npm install` 끝에 `npm audit` 경고(moderate 12건)가 나옵니다.**
+  - 모두 개발 도구(ESLint 플러그인, 테스트 유틸)가 쓰는 `minimatch`·`glob` 경로입니다. 운영 의존성은 0건입니다(`npm audit --omit=dev`).
+  - 제안된 `npm audit fix --force`는 typescript-eslint를 8.72 → 8.36으로 **내리는** 변경이라, 고정한 TypeScript 6과의 호환을 깨뜨릴 수 있어 적용하지 않았습니다.
