@@ -15,6 +15,13 @@ export const HISTORY_ACTOR_LABEL: Readonly<Record<HistoryActor, string>> = {
   SYSTEM: '시스템',
 };
 
+/** 학생 본인 화면의 취소 주체 문장. 조사를 기계적으로 붙이지 않고 주체별로 정한다. */
+export const CANCELED_BY_TEXT: Readonly<Record<HistoryActor, string>> = {
+  STUDENT: '내가 취소했습니다.',
+  TEACHER: '강사가 취소했습니다.',
+  SYSTEM: '자동으로 취소되었습니다.',
+};
+
 /** 신청의 화면 표시 상태 (docs/visit-policy.md 1절) */
 export type VisitDisplayState = 'UPCOMING' | 'PAST' | 'CANCELED';
 

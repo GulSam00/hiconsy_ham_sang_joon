@@ -55,6 +55,12 @@ export function createAppRouter(pinia: Pinia): Router {
         meta: { role: ACTOR_ROLE.STUDENT, title: '자습실 신청' },
       },
       {
+        path: '/student/visits',
+        name: ROUTE_NAME.STUDENT_VISITS,
+        component: () => import('@/pages/student/StudentVisitsPage.vue'),
+        meta: { role: ACTOR_ROLE.STUDENT, title: '내 신청' },
+      },
+      {
         path: '/:pathMatch(.*)*',
         name: ROUTE_NAME.NOT_FOUND,
         component: () => import('@/pages/NotFoundPage.vue'),

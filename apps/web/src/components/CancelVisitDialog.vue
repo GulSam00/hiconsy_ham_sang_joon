@@ -7,20 +7,31 @@ import BaseDialog from './BaseDialog.vue';
 import ErrorMessage from './ErrorMessage.vue';
 
 /**
- * 강사 취소 (R11). 사유가 필수다. 서버와 같은 규칙(앞뒤 공백 제거 후 비면 없음)으로 버튼을 막는다.
+ * 신청 취소 대화상자. 강사(R11)는 사유가 필수이고, 학생은 선택이다.
+ * 서버와 같은 규칙(앞뒤 공백 제거 후 비면 사유 없음)을 쓴다.
  */
-const props = defineProps<{ visit: { visitId: number; studentName: string; visitAt: string } }>();
+const props = withDefaults(
+  defineProps<{
+    visit: { visitId: number; studentName?: string; visitAt: string };
+    reasonRequired?: boolean;
+  }>(),
+  { reasonRequired: true },
+);
 const emit = defineEmits<{ close: []; canceled: [] }>();
 
 const reason = ref('');
 const trimmed = computed(() => reason.value.trim());
+const canSubmit = computed(() => !props.reasonRequired || trimmed.value !== '');
 const cancel = useCancelVisit();
 
 async function submit(): Promise<void> {
-  if (trimmed.value === '') {
+  if (!canSubmit.value) {
     return;
   }
-  await cancel.mutateAsync({ visitId: props.visit.visitId, reason: trimmed.value });
+  await cancel.mutateAsync({
+    visitId: props.visit.visitId,
+    reason: trimmed.value === '' ? undefined : trimmed.value,
+  });
   emit('canceled');
 }
 </script>
@@ -28,11 +39,17 @@ async function submit(): Promise<void> {
 <template>
   <BaseDialog title="신청 취소" @close="emit('close')">
     <p class="mb-4 text-sm text-slate-600">
-      <strong>{{ props.visit.studentName }}</strong> 학생의
-      {{ formatKst(props.visit.visitAt) }} 방문 신청을 취소합니다. 사유는 학생에게 보여집니다.
+      <template v-if="props.visit.studentName">
+        <strong>{{ props.visit.studentName }}</strong> 학생의
+      </template>
+      {{ formatKst(props.visit.visitAt) }} 방문 신청을 취소합니다.
+      <template v-if="props.reasonRequired">사유는 학생에게 보여집니다.</template>
+      <template v-else>취소하면 자리가 다른 학생에게 돌아갑니다.</template>
     </p>
     <form @submit.prevent="submit().catch(() => undefined)">
-      <label class="mb-1 block text-sm text-slate-600" for="cancel-reason">취소 사유 (필수)</label>
+      <label class="mb-1 block text-sm text-slate-600" for="cancel-reason">
+        취소 사유 {{ props.reasonRequired ? '(필수)' : '(선택)' }}
+      </label>
       <textarea
         id="cancel-reason"
         v-model="reason"
@@ -56,7 +73,7 @@ async function submit(): Promise<void> {
         <button
           type="submit"
           class="rounded-md bg-red-600 px-4 py-2 text-sm text-white enabled:hover:bg-red-500 disabled:opacity-50"
-          :disabled="trimmed === '' || cancel.isPending.value"
+          :disabled="!canSubmit || cancel.isPending.value"
         >
           {{ cancel.isPending.value ? '취소 중...' : '신청 취소' }}
         </button>
