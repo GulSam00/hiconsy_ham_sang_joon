@@ -75,6 +75,8 @@ issues/
 | Prisma Client 재생성 | `npm run db:generate` | 스키마 수정 후 |
 | 마이그레이션 생성 | `npm run db:migrate -w @study-room/api -- --name {이름}` | 스키마 수정 후. 개발 DB에 적용됨 |
 | DB 조회 GUI | `npm run db:studio -w @study-room/api` | |
+| Docker 실행 | `docker compose up --build` | Node 22.12+가 없을 때의 대안. 웹 :4173, API :3000. DB는 `db-data` 볼륨 |
+| Docker DB 초기화 | `docker compose down -v` | 볼륨을 지워 다음 기동 때 시드부터 다시 적용 |
 
 ## 5. 도메인 정책 (규칙 해석)
 
