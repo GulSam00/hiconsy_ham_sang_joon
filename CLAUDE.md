@@ -47,13 +47,14 @@ issues/
 | 스타일 | Tailwind CSS | |
 | 공용 타입 | `packages/shared` | `ErrorCode`, enum, API 응답 타입. **ESM 전용**, `dist`로 빌드해 소비 |
 | 테스트 | Vitest (api는 `unplugin-swc`로 변환) | esbuild는 데코레이터 메타데이터를 만들지 않아 Nest DI가 동작하지 않으므로 api만 SWC 사용 |
-| 런타임 | Node.js **≥ 22.12** (`.nvmrc`) | CJS인 api가 ESM인 shared를 `require(esm)`으로 불러오기 때문 |
+| 런타임 | Node.js **≥ 22.12**, npm **≥ 10** (`.nvmrc`는 검증한 22.23.4로 고정) | CJS인 api가 ESM인 shared를 `require(esm)`으로 불러오기 때문. 22.23.4와 24.22.1에서 `verify` 통과를 확인함 |
 
 ### 버전 고정 규칙
 
 - 의존성은 **정확한 버전으로 고정**합니다 (`^`, `~` 금지). `.npmrc`의 `save-exact=true`가 이를 강제합니다. `package-lock.json`을 커밋합니다.
 - **Prisma**: npm `latest` 태그가 RC(8.x)를 가리키므로 **안정판 7.x를 명시 고정**합니다. RC, beta, dev 태그는 쓰지 않습니다.
 - **TypeScript**: **6.0.3으로 고정**합니다. `latest`는 7.x이지만 `typescript-eslint`(`<6.1.0`), Nest CLI(`~6.0.2`)가 아직 7을 지원하지 않습니다. 올리기 전에 `npm run verify` 통과를 확인합니다.
+- **설치 스크립트**: 루트 `package.json`의 `allowScripts`에 **버전 단위로** 허용·거부를 적습니다(npm 11+가 읽고, 이후 버전은 미검토 스크립트를 막을 예정). 설치 스크립트가 있는 의존성을 추가·업그레이드하면 `npm approve-scripts {패키지}`(npm 11)로 다시 검토하고, `npm approve-scripts --allow-scripts-pending`이 비어 있는지 확인합니다. 텔레메트리처럼 기능과 무관한 스크립트는 `npm deny-scripts`로 거부합니다.
 
 ## 4. 명령어
 
@@ -75,6 +76,8 @@ issues/
 | Prisma Client 재생성 | `npm run db:generate` | 스키마 수정 후 |
 | 마이그레이션 생성 | `npm run db:migrate -w @study-room/api -- --name {이름}` | 스키마 수정 후. 개발 DB에 적용됨 |
 | DB 조회 GUI | `npm run db:studio -w @study-room/api` | |
+| Docker 실행 | `docker compose up --build` | Node 22.12+가 없을 때의 대안. 웹 :4173, API :3000. DB는 `db-data` 볼륨 |
+| Docker DB 초기화 | `docker compose down -v` | 볼륨을 지워 다음 기동 때 시드부터 다시 적용 |
 
 ## 5. 도메인 정책 (규칙 해석)
 

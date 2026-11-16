@@ -1,0 +1,21 @@
+# 호스트에서 만든 결과물이 이미지에 섞이면 다른 OS용 네이티브 바이너리(better-sqlite3)나
+# 오래된 빌드가 들어갈 수 있으므로, 이미지 안에서 항상 새로 설치·빌드합니다.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/coverage
+apps/api/src/generated
+
+# DB와 비밀 값은 이미지에 넣지 않습니다.
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+**/.env
+**/.env.*
+
+.git
+.idea
+.vscode
+.DS_Store
+*.log
